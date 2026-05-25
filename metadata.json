@@ -1,0 +1,8 @@
+{
+  "name": "FinTech",
+  "description": "Financial dashboard and tracking for hawkers and food businesses.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

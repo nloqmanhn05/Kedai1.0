@@ -1,0 +1,313 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@fontsource-variable/geist";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  --color-primary: #4c22bd;
+  --color-primary-container: #6442d6;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #ded4ff;
+  --color-primary-fixed: #e7deff;
+  --color-on-primary-fixed: #1e0061;
+  --color-active-indicator: #F7F2FA;
+
+  --color-secondary: #5d5c73;
+  --color-secondary-container: #dfddf8;
+  --color-on-secondary-container: #616177;
+
+  --color-tertiary: #4a464b;
+
+  --color-background: #fdf8fb;
+  --color-surface: #fdf8fb;
+  --color-surface-dim: #ddd9db;
+  --color-surface-bright: #fdf8fb;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f7f2f5;
+  --color-surface-container: #f1edef;
+  --color-surface-container-high: #ebe7e9;
+  --color-surface-container-highest: #e6e1e4;
+
+  --color-on-surface: #1c1b1f;
+  --color-on-surface-variant: #484554;
+  --color-outline: #79747e;
+  --color-outline-variant: #cac4d7;
+
+  --color-error: #b3261e;
+  --color-error-container: #ffdad6;
+  --color-on-error: #ffffff;
+  --color-on-error-container: #93000a;
+
+  --spacing-baseline: 4px;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-on-surface;
+    font-family: var(--font-sans);
+  }
+}
+
+/* Custom scrollbar - Hidden */
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: none;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+.material-symbols-outlined.filled {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* Sidebar Nav Drawer label styling - Enforce 20pt line-height for label elements */
+nav a, nav button {
+  line-height: 20pt !important;
+}
+
+/* Material Design 3 Enter and Exit transition patterns */
+.md-drawer-enter {
+  transition: all 300ms cubic-bezier(0.2, 0, 0, 1) !important;
+}
+
+.md-drawer-exit {
+  transition: all 200ms cubic-bezier(0.3, 0, 0.8, 0.15) !important;
+}
+
+/* Interactive cursor, hover overlay & active ripple styles for navigation links */
+nav a, nav button {
+  position: relative;
+  overflow: hidden;
+  cursor: pointer !important;
+}
+
+/* Hover State - Soft overlay to show interactivity */
+nav a:hover, nav button:hover {
+  background-color: rgba(76, 34, 189, 0.08) !important; /* 8% primary color opacity */
+}
+
+/* Hover State for Active capsule - keep the container shape and slightly darken */
+nav a.bg-active-indicator:hover, nav button.bg-active-indicator:hover {
+  background-color: #EFE9F5 !important; /* Slightly darker than #F7F2FA for hover feedback */
+}
+
+/* Click Active State - Ripple wave simulation passing through the indicator */
+nav a::after, nav button::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 200px;
+  height: 200px;
+  background: #4c22bd; /* Primary color */
+  opacity: 0;
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  transition: transform 450ms cubic-bezier(0.2, 0, 0, 1), opacity 450ms cubic-bezier(0.2, 0, 0, 1);
+  pointer-events: none;
+}
+
+nav a:active::after, nav button:active::after {
+  transform: translate(-50%, -50%) scale(2.5);
+  opacity: 0.12;
+  transition: 0s;
+}
+
+/* Material Design 3 Text Fields - Enforce 8dp (8px) top and bottom padding */
+input[type="text"]:not(.bg-transparent),
+input[type="number"]:not(.bg-transparent),
+input[type="email"]:not(.bg-transparent),
+input[type="password"]:not(.bg-transparent),
+input[type="search"]:not(.bg-transparent),
+input[type="tel"]:not(.bg-transparent),
+input[type="url"]:not(.bg-transparent),
+input[type="date"]:not(.bg-transparent),
+input[type="time"]:not(.bg-transparent),
+select {
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+  height: 48px !important;
+  box-sizing: border-box !important;
+  line-height: normal !important;
+  vertical-align: middle !important;
+  border-radius: 12px !important;
+}
+
+/* Ensure placeholder labels inside the text field are perfectly centered vertically */
+input::placeholder {
+  line-height: normal !important;
+  vertical-align: middle !important;
+}
+
+/* Isolated Spacing: Left/right padding WITHOUT icons is strictly 16dp (16px) */
+input[type="text"]:not(.bg-transparent):not(.with-icon),
+input[type="number"]:not(.bg-transparent):not(.with-icon),
+input[type="email"]:not(.bg-transparent):not(.with-icon),
+input[type="password"]:not(.bg-transparent):not(.with-icon),
+input[type="search"]:not(.bg-transparent):not(.with-icon),
+input[type="tel"]:not(.bg-transparent):not(.with-icon),
+input[type="url"]:not(.bg-transparent):not(.with-icon),
+input[type="date"]:not(.bg-transparent):not(.with-icon),
+input[type="time"]:not(.bg-transparent):not(.with-icon),
+select:not(.with-icon) {
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+}
+
+/* Isolated Spacing: Left/right padding WITH icons is strictly 12dp (12px) */
+.with-icon,
+.input-with-icon,
+input.with-icon,
+select.with-icon {
+  padding-left: 12px !important;
+  padding-right: 12px !important;
+}
+
+textarea {
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+  border-radius: 12px !important;
+}
+
+/* Enforce perfect vertical centering for all icons inside text filled containers */
+.input-with-icon-wrapper,
+div.relative:has(input) {
+  position: relative;
+}
+
+div.relative:has(input) > .material-symbols-outlined,
+div.relative:has(input) > svg {
+  position: absolute !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  translate: none !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 24px !important;
+  height: 24px !important;
+  line-height: 1 !important;
+}
+
+/* 16dp spacing between icon and text inside filled text fields */
+/* Math: 12dp (left container padding) + 24dp (icon width) + 16dp (spacing) = 52dp from edge */
+div.relative:has(input) > .material-symbols-outlined:first-child,
+div.relative:has(input) > svg:first-child {
+  left: 12px !important;
+}
+
+div.relative:has(input) > .material-symbols-outlined:last-child,
+div.relative:has(input) > svg:last-child {
+  right: 12px !important;
+}
+
+/* Set input text padding offset so it starts exactly 16dp after the icon */
+div.relative > .material-symbols-outlined + input:not(.bg-transparent):not(.with-icon),
+div.relative > svg + input:not(.bg-transparent):not(.with-icon),
+div.relative > button + input:not(.bg-transparent):not(.with-icon) {
+  padding-left: 52px !important;
+}
+
+/* Set input text padding offset if there is a trailing icon */
+div.relative > input:not(.bg-transparent):not(.with-icon):has(~ .material-symbols-outlined),
+div.relative > input:not(.bg-transparent):not(.with-icon):has(~ svg),
+div.relative > input:not(.bg-transparent):not(.with-icon):has(~ button) {
+  padding-right: 52px !important;
+}
+
+/* ==========================================================================
+   MD3 Floating Label Text Fields (For Sign In / Sign Up)
+   ========================================================================== */
+.floating-group {
+  position: relative;
+  width: 100%;
+}
+
+.floating-group input[type="text"]:not(.bg-transparent),
+.floating-group input[type="password"]:not(.bg-transparent),
+.floating-group input[type="email"]:not(.bg-transparent),
+.floating-group input[type="tel"]:not(.bg-transparent),
+.floating-group input:not(.bg-transparent) {
+  height: 56px !important;
+  padding-top: 22px !important;
+  padding-bottom: 6px !important;
+  font-size: 14px !important;
+  border-radius: 12px !important;
+}
+
+/* Base Label (Centered) */
+.floating-group label {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  left: 16px;
+  color: #72777A; /* on-surface-variant approx */
+  font-size: 16px;
+  pointer-events: none;
+  transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+  margin: 0 !important;
+}
+
+/* Shift label right if there is a leading icon */
+.floating-group:has(> svg:first-child) label,
+.floating-group:has(> .material-symbols-outlined:first-child) label {
+  left: 52px;
+}
+
+/* Floating State (Focused or Has Text) */
+.floating-group input:focus ~ label,
+.floating-group input:not(:placeholder-shown) ~ label {
+  top: 6px;
+  transform: translateY(0);
+  font-size: 11px;
+}
+
+/* Color when Focused */
+.floating-group input:focus ~ label,
+.floating-group textarea:focus ~ label {
+  color: var(--primary, #6750A4);
+}
+
+/* Multi-line Text Area Support */
+.floating-group textarea {
+  min-height: 120px !important;
+  padding-top: 22px !important;
+  padding-bottom: 8px !important;
+  resize: vertical;
+  line-height: normal !important;
+  font-size: 14px !important;
+  border-radius: 12px !important;
+}
+
+.floating-group textarea ~ label {
+  top: 22px; /* Un-floated label aligns with first line of text */
+  transform: none;
+}
+
+.floating-group textarea:focus ~ label,
+.floating-group textarea:not(:placeholder-shown) ~ label {
+  top: 6px;
+  transform: translateY(0);
+  font-size: 11px;
+}
