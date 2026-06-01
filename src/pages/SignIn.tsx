@@ -4,6 +4,8 @@ import { AppIcon } from '../components/Layout';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { motion } from 'framer-motion';
+import { db } from '../lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 export default function SignIn() {
   const [searchParams] = useSearchParams();
@@ -17,7 +19,7 @@ export default function SignIn() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   
-  const { signIn } = useAuth();
+  const { signIn, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -25,11 +27,39 @@ export default function SignIn() {
     try {
       setError('');
       setLoading(true);
-      await signIn(email, password);
+      
+      const userCredential = await signIn(email, password);
+      const user = userCredential.user;
+
+      // Fetch user's registered role from Firestore
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      
+      if (!userDoc.exists()) {
+        await logout();
+        setError('account not registered');
+        return;
+      }
+
+      const registeredRole = userDoc.data()?.role;
+
+      if (registeredRole !== role) {
+        await logout();
+        setError('account not registered');
+        return;
+      }
+
       localStorage.setItem('userRole', role);
       navigate('/dashboard');
     } catch (err: any) {
-      setError('Failed to sign in. ' + err.message);
+      if (
+        err.code === 'auth/user-not-found' || 
+        err.code === 'auth/wrong-password' || 
+        err.code === 'auth/invalid-credential'
+      ) {
+        setError('account not registered');
+      } else {
+        setError('Failed to sign in. ' + err.message);
+      }
     } finally {
       setLoading(false);
     }

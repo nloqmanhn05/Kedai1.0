@@ -4,6 +4,8 @@ import { AppIcon } from '../components/Layout';
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { motion } from 'framer-motion';
+import { db } from '../lib/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 
 export default function SignUp() {
   const [showPassword, setShowPassword] = useState(false);
@@ -20,12 +22,26 @@ export default function SignUp() {
     try {
       setError('');
       setLoading(true);
-      await signUp(email, password);
-      // Save role according to user's selection
+      
+      const userCredential = await signUp(email, password);
+      const user = userCredential.user;
+
+      // Save role inside Firestore immediately
+      await setDoc(doc(db, 'users', user.uid), {
+        email: email,
+        role: role,
+        createdAt: new Date().toISOString()
+      });
+
+      // Save role according to user's selection in localStorage
       localStorage.setItem('userRole', role);
       navigate('/dashboard');
     } catch (err: any) {
-      setError('Failed to create an account. ' + err.message);
+      if (err.code === 'auth/email-already-in-use') {
+        setError('you are not allowed');
+      } else {
+        setError('Failed to create an account. ' + err.message);
+      }
     } finally {
       setLoading(false);
     }
