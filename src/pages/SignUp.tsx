@@ -9,6 +9,7 @@ export default function SignUp() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [role, setRole] = useState<'admin' | 'staff'>('admin');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { signUp } = useAuth();
@@ -20,9 +21,8 @@ export default function SignUp() {
       setError('');
       setLoading(true);
       await signUp(email, password);
-      // Ensure role is initialized as admin or staff, let's default to admin for new signups
-      // or handle it in a more robust way later.
-      localStorage.setItem('userRole', 'admin');
+      // Save role according to user's selection
+      localStorage.setItem('userRole', role);
       navigate('/dashboard');
     } catch (err: any) {
       setError('Failed to create an account. ' + err.message);
@@ -65,7 +65,40 @@ export default function SignUp() {
               <AppIcon className="text-white w-8 h-8" />
             </div>
             <h1 className="text-3xl font-bold text-on-surface mb-2 tracking-tight">Create Account</h1>
-            <p className="text-base text-on-surface-variant">Join FinTech to manage your stall efficiently</p>
+            <p className="text-base text-on-surface-variant mb-6">Join FinTech to manage your stall efficiently</p>
+          </div>
+
+          {/* Segmented Control */}
+          <div className="w-full bg-surface-container-highest rounded-full p-1 flex mb-6 relative">
+            {/* Sliding background indicator */}
+            <div
+              className="absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] bg-surface-container-lowest rounded-full shadow-sm transition-transform duration-300 ease-out pointer-events-none"
+              style={{
+                transform: role === 'admin' ? 'translateX(0)' : 'translateX(100%)',
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => setRole('admin')}
+              className={`relative z-10 flex-1 py-2 px-4 rounded-full text-sm font-medium transition-all cursor-pointer bg-transparent ${
+                role === 'admin'
+                  ? 'text-on-surface'
+                  : 'text-on-surface-variant hover:text-on-surface'
+              }`}
+            >
+              Admin Sign Up
+            </button>
+            <button
+              type="button"
+              onClick={() => setRole('staff')}
+              className={`relative z-10 flex-1 py-2 px-4 rounded-full text-sm font-medium transition-all cursor-pointer bg-transparent ${
+                role === 'staff'
+                  ? 'text-on-surface'
+                  : 'text-on-surface-variant hover:text-on-surface'
+              }`}
+            >
+              Staff Sign Up
+            </button>
           </div>
 
           {error && <div className="mb-4 p-3 bg-error/10 text-error text-sm rounded-lg border border-error/20">{error}</div>}
