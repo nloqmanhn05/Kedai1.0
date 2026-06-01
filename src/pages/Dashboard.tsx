@@ -18,17 +18,19 @@ const chartData = [
 export default function Dashboard() {
   const [liveTransactions, setLiveTransactions] = useState<any[]>([]);
 
+  const loadLogs = () => {
+    const saved = localStorage.getItem('wise_sales_log');
+    if (saved) {
+      try {
+        setLiveTransactions(JSON.parse(saved));
+      } catch (e) {
+        console.error("Failed to parse sales logs from localStorage", e);
+      }
+    }
+  };
+
   // Load and listen for live sales updates
   useEffect(() => {
-    const loadLogs = () => {
-      const saved = localStorage.getItem('wise_sales_log');
-      if (saved) {
-        try {
-          setLiveTransactions(JSON.parse(saved));
-        } catch (e) {}
-      }
-    };
-
     loadLogs();
     window.addEventListener('salesLogUpdated', loadLogs);
     return () => window.removeEventListener('salesLogUpdated', loadLogs);

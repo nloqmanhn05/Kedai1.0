@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Layout } from '../../components/Layout';
 import { AdminStockView } from './AdminStockView';
 import { StaffStockView } from './StaffStockView';
+import { useStockFirestore } from '../../hooks/useStockFirestore';
 import { StockItem } from '../types';
 
 const initialStockFallback: StockItem[] = [
@@ -16,69 +17,73 @@ const initialStockFallback: StockItem[] = [
 export default function Stock() {
   const userRole = localStorage.getItem('userRole') || 'admin';
 
-  const [stockList, setStockListState] = useState<StockItem[]>(() => {
-    const saved = localStorage.getItem('wise_stock_inventory');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    // Set fallback stock to localStorage so other pages can also see it
-    localStorage.setItem('wise_stock_inventory', JSON.stringify(initialStockFallback));
-    return initialStockFallback;
-  });
+  // Use the Firestore Hook
+  const {
+    stockList,
+    loading,
+    error,
+    lastUpdatedTime,
+    lastUpdatedBy,
+    addItem,
+    restockItem,
+    updateItemDetails,
+    deleteItem,
+    seedFallbackData
+  } = useStockFirestore();
 
-  const [lastUpdatedTime, setLastUpdatedTimeState] = useState<string>(() => {
-    return localStorage.getItem('wise_stock_last_updated_time') || '2026-05-23 10:00 AM';
-  });
+  // If data is loading from the cloud, show a loading status
+  if (loading) {
+    return (
+      <Layout title={userRole === 'admin' ? "Stock Inventory" : "Stock Update"}>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center space-y-2">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+            <p className="text-xs text-outline font-semibold">Loading stock from Cloud Firestore...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
-  const [lastUpdatedBy, setLastUpdatedByState] = useState<string>(() => {
-    return localStorage.getItem('wise_stock_last_updated_by') || 'System';
-  });
+  // Display error if one occurred
+  if (error) {
+    return (
+      <Layout title="Stock Inventory">
+        <div className="p-6 bg-error-container/10 border border-error/20 rounded-2xl text-center">
+          <p className="text-error font-bold text-sm">Error connecting to Firestore</p>
+          <p className="text-xs text-outline mt-1">{error.message}</p>
+        </div>
+      </Layout>
+    );
+  }
 
-  // Keep state synced with localStorage
-  const setStockList = (update: StockItem[] | ((prev: StockItem[]) => StockItem[])) => {
-    setStockListState(prev => {
-      const next = typeof update === 'function' ? update(prev) : update;
-      localStorage.setItem('wise_stock_inventory', JSON.stringify(next));
-      return next;
-    });
+  // Seed Button if database is completely empty
+  if (stockList.length === 0) {
+    return (
+      <Layout title="Stock Inventory">
+        <div className="flex flex-col items-center justify-center min-h-[400px] text-center gap-4">
+          <span className="material-symbols-outlined text-4xl text-outline">database</span>
+          <div>
+            <p className="font-bold text-on-surface text-sm">No Stock Cataloged</p>
+            <p className="text-xs text-outline mt-1">Seed your database with default items to begin.</p>
+          </div>
+          <button
+            onClick={() => seedFallbackData(initialStockFallback)}
+            className="bg-primary text-white rounded-full px-6 py-2.5 font-bold text-xs shadow-sm hover:bg-primary-container transition-all active:scale-95 cursor-pointer"
+          >
+            Seed Initial Fallback Stock
+          </button>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Adapter functions to map state operations to Firestore async updates
+  const handleSetStockList = async (update: StockItem[] | ((prev: StockItem[]) => StockItem[])) => {
+    // If update is callback, evaluate it against current local state
+    const nextList = typeof update === 'function' ? update(stockList) : update;
+    // In our live setup, we update individual Firestore documents directly from components (see below).
   };
-
-  const setLastUpdatedTime = (time: string) => {
-    setLastUpdatedTimeState(time);
-    localStorage.setItem('wise_stock_last_updated_time', time);
-  };
-
-  const setLastUpdatedBy = (by: string) => {
-    setLastUpdatedByState(by);
-    localStorage.setItem('wise_stock_last_updated_by', by);
-  };
-
-  // Listen to external stock changes (e.g. from POS order checkout)
-  useEffect(() => {
-    const handleStockUpdate = () => {
-      const saved = localStorage.getItem('wise_stock_inventory');
-      if (saved) {
-        try {
-          setStockListState(JSON.parse(saved));
-        } catch (e) {
-          console.error(e);
-        }
-      }
-      const savedTime = localStorage.getItem('wise_stock_last_updated_time');
-      if (savedTime) setLastUpdatedTimeState(savedTime);
-      const savedBy = localStorage.getItem('wise_stock_last_updated_by');
-      if (savedBy) setLastUpdatedByState(savedBy);
-    };
-
-    window.addEventListener('stockInventoryUpdated', handleStockUpdate);
-    return () => {
-      window.removeEventListener('stockInventoryUpdated', handleStockUpdate);
-    };
-  }, []);
 
   return (
     <Layout title={userRole === 'admin' ? "Stock Inventory" : "Stock Update"}>
@@ -91,11 +96,15 @@ export default function Stock() {
       ) : (
         <StaffStockView
           stockList={stockList}
-          setStockList={setStockList}
+          setStockList={handleSetStockList}
           lastUpdatedTime={lastUpdatedTime}
-          setLastUpdatedTime={setLastUpdatedTime}
+          setLastUpdatedTime={async (time) => { }} // Firestore handles this metadata automatically!
           lastUpdatedBy={lastUpdatedBy}
-          setLastUpdatedBy={setLastUpdatedBy}
+          setLastUpdatedBy={async (by) => { }}
+          addItem={addItem}
+          restockItem={restockItem}
+          updateItemDetails={updateItemDetails}
+          deleteItem={deleteItem}
         />
       )}
     </Layout>

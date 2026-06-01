@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Layout } from '../components/Layout';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTransactionsFirestore } from '../hooks/useTransactionsFirestore';
 
 interface MenuItem {
   id: string;
@@ -45,6 +46,8 @@ export default function Menu() {
 
   const [isEditMode, setIsEditMode] = useState(false);
   const [isStaffDropdownOpen, setIsStaffDropdownOpen] = useState(false);
+  
+  const { addTransaction } = useTransactionsFirestore();
 
   // Get staff from localStorage to link with Settings/Profile clock-in status
   const staffOnShift = React.useMemo<StaffMember[]>(() => {
@@ -204,7 +207,7 @@ export default function Menu() {
   };
 
   // Complete Payment Action
-  const handleCompletePayment = () => {
+  const handleCompletePayment = async () => {
     if (orderItems.length === 0) return;
     
     // Deduct ingredients/packaging items from inventory
@@ -220,29 +223,32 @@ export default function Menu() {
       ? activeStaff.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
       : '??';
 
-    const newTransaction = {
-      id: Date.now(),
-      date: dateStr,
-      time: timeStr,
-      orderId: orderId,
-      staffName: activeStaff?.name || 'Unknown Staff',
-      staffInitials: initials,
-      staffColor: 'bg-primary-container text-on-primary-container',
-      amount: total
-    };
+    // Staff color mapping based on initials hash or just a random selection for consistency
+    const colors = [
+      'bg-primary-container text-on-primary-container',
+      'bg-secondary-container text-on-secondary-container',
+      'bg-tertiary-container text-on-tertiary-container',
+      'bg-error-container text-on-error-container'
+    ];
+    const colorIndex = (initials.charCodeAt(0) + (initials.charCodeAt(1) || 0)) % colors.length;
+    const staffColor = colors[colorIndex];
 
-    // Persist to localStorage
-    const savedLogs = localStorage.getItem('wise_sales_log');
-    let logs = [];
-    if (savedLogs) {
-      try {
-        logs = JSON.parse(savedLogs);
-      } catch (e) {}
+    try {
+      await addTransaction({
+        date: dateStr,
+        time: timeStr,
+        orderId,
+        staffName: activeStaff?.name || 'Unknown Staff',
+        staffInitials: initials,
+        staffColor: staffColor,
+        amount: total,
+      });
+    } catch (e) {
+      console.error("Failed to add transaction to Firestore", e);
+      // We could optionally fallback to localStorage here if we wanted to
     }
-    logs = [newTransaction, ...logs];
-    localStorage.setItem('wise_sales_log', JSON.stringify(logs));
 
-    // Create a new ledger entry for the Admin Report/Ledger
+    // Create a new ledger entry for the Admin Report/Ledger (keeping localStorage as requested)
     const ledgerEntry = {
       id: Date.now(),
       staff: [activeStaff?.name || 'Unknown Staff'],
@@ -257,7 +263,7 @@ export default function Menu() {
     };
 
     const savedLedger = localStorage.getItem('wise_ledger_registry');
-    let ledger = [];
+    let ledger: any[] = [];
     if (savedLedger) {
       try {
         ledger = JSON.parse(savedLedger);
@@ -266,9 +272,6 @@ export default function Menu() {
     ledger = [ledgerEntry, ...ledger];
     localStorage.setItem('wise_ledger_registry', JSON.stringify(ledger));
     window.dispatchEvent(new Event('ledgerUpdated'));
-
-    // Dispatch event to notify listeners (Live Status update)
-    window.dispatchEvent(new Event('salesLogUpdated'));
     
     setLastPaymentAmount(total);
     setShowSuccessOverlay(true);

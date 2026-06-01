@@ -1,17 +1,11 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Layout } from '../components/Layout';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTransactionsFirestore } from '../hooks/useTransactionsFirestore';
+import { SalesTransaction } from './types';
 
-interface SalesTransaction {
-  id: number;
-  date: string;
-  time: string;
-  orderId: string;
-  staffName: string;
-  staffInitials: string;
-  staffColor: string; // Tailwind background colors for avatars
-  amount: number;
-}
+// The SalesTransaction interface is now imported from types.ts, but we'll use the hook's return type directly.
+// (You could also import SalesTransaction if needed here)
 
 const initialTransactions: SalesTransaction[] = [
   {
@@ -123,32 +117,8 @@ export default function TransactionHistory() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
-  // Dynamic state for all transactions (Mock data + Live data from localStorage)
-  const [allTransactions, setAllTransactions] = useState<SalesTransaction[]>(() => {
-    const saved = localStorage.getItem('wise_sales_log');
-    let logs: SalesTransaction[] = [];
-    if (saved) {
-      try {
-        logs = JSON.parse(saved);
-      } catch (e) {}
-    }
-    return [...logs, ...initialTransactions];
-  });
-
-  // Listen for live updates from the POS (Menu.tsx)
-  useEffect(() => {
-    const handleUpdate = () => {
-      const saved = localStorage.getItem('wise_sales_log');
-      if (saved) {
-        try {
-          const logs = JSON.parse(saved);
-          setAllTransactions([...logs, ...initialTransactions]);
-        } catch (e) {}
-      }
-    };
-    window.addEventListener('salesLogUpdated', handleUpdate);
-    return () => window.removeEventListener('salesLogUpdated', handleUpdate);
-  }, []);
+  // Get live data from Firestore instead of localStorage
+  const { transactions: allTransactions, loading } = useTransactionsFirestore();
 
   // Extract unique staff and dates for dynamic filters
   const availableStaff = useMemo(() => {
@@ -330,7 +300,17 @@ export default function TransactionHistory() {
             {/* Grid Body */}
             <div className="divide-y divide-outline-variant/10 bg-surface min-h-[300px] relative">
               <AnimatePresence mode="popLayout">
-                {paginatedTransactions.length === 0 ? (
+                {loading ? (
+                  <motion.div 
+                    key="loading"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="py-12 text-center text-outline font-bold text-sm"
+                  >
+                    Loading transactions...
+                  </motion.div>
+                ) : paginatedTransactions.length === 0 ? (
                   <motion.div 
                     key="empty"
                     initial={{ opacity: 0 }}

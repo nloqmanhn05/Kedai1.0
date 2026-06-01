@@ -1,0 +1,54 @@
+# Kedai System - Software Requirements Specification (SRS)
+
+## Technology Stack
+
+This document details the complete technology stack used to build and deploy the Kedai business management application.
+
+---
+
+### 1. Frontend & Client-Side Presentation
+*   **Framework**: **React 19** (`react`, `react-dom`)
+*   **Build Tool & Local Dev Server**: **Vite** (`vite`, `@vitejs/plugin-react`)
+*   **Programming Language**: **TypeScript** (`typescript`)
+*   **Routing**: **React Router DOM v7** (`react-router-dom`)
+*   **Styling & Design System**:
+    *   **Tailwind CSS v4** (`tailwindcss`, `@tailwindcss/vite`)
+    *   **Radix UI** primitives (`radix-ui`)
+    *   **Shadcn UI** components (`shadcn`)
+    *   **Utility Class Management**: `class-variance-authority` (CVA), `clsx`, and `tailwind-merge`
+*   **Icons**: **Lucide React** (`lucide-react`)
+*   **Animations**: **Motion** (Framer Motion) & **tw-animate-css**
+*   **Data Visualization**: **Recharts** (`recharts`) for ledger, reports, and financial charts
+*   **Typography**: **Geist Variable Font** (`@fontsource-variable/geist`)
+
+---
+
+### 2. Backend & Database Layer (Serverless Cloud Services)
+*   **Backend Platform**: **Google Firebase** (`firebase` SDK)
+*   **Authentication**: **Firebase Authentication** (`FB_AUTH`) for secure user creation, login, session states, and role checks.
+*   **Database**: **Cloud Firestore** (`FS_DB`), a real-time NoSQL document database.
+    *   *Stocks Collection* (`stocks`): Real-time stock levels, threshold warnings, and metadata.
+    *   *Transactions Collection* (`transactions`): Log of POS customer sales and order history.
+    *   *Expenses Collection* (`expenses`): Store running costs and purchase records.
+    *   *Chats Collection* (`chats`): Saved AI companion chats grouped by user session.
+    *   *Metadata Collection* (`metadata`): General state trackers (e.g. `stock_status` document).
+*   **Data Security & Validation**: **Firestore Security Rules** (`SEC_RULES`) enforcing role-based permissions and CRUD access controls.
+*   **Local Caching**: Browser **Local Storage Cache** for transient configuration storage.
+
+---
+
+### 3. Artificial Intelligence & Cognitive Layer
+*   **AI Platform & Hosting**: **Google Cloud Vertex AI** (for enterprise API hosting, security, and low-latency scaling)
+*   **Core AI Models**: **Google Gemini 2.5 Flash** (via Vertex AI Model Registry and Endpoint APIs)
+*   **Integration SDK**: **Google Gen AI SDK** (`@google/genai` or standard Vertex AI SDKs)
+*   **AI Capabilities (Akira AI Assistant)**:
+    *   *Natural Language Chat*: Real-time question answering for store staff and administrators.
+    *   *Financial Audits*: Analysis of transaction history and business expense trends.
+    *   *Inventory Recommendations*: Smart restocking advice and alert detection based on current stock velocities.
+
+---
+
+### 4. Core Development & General Utilities
+*   **Spreadsheet Parsing/Generation**: **SheetJS XLSX** (`xlsx`) for importing/exporting inventory lists and ledger summaries.
+*   **Helper Utilities**: **es-toolkit** for highly-efficient utility functions.
+*   **Types & Configurations**: `@types/node`, `@types/react`, `@types/react-dom`, and `tsconfig.json` configurations.

@@ -15,8 +15,8 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Default to Dashboard for a better app experience */}
-        <Route path="/" element={<Dashboard />} />
+        {/* Default to Landing page on app launch */}
+        <Route path="/" element={<Landing />} />
         
         {/* Auth Routes */}
         <Route path="/login" element={<SignIn />} />

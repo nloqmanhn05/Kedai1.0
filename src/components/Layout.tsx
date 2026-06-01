@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Users,
@@ -14,6 +14,8 @@ import {
   PanelLeftClose,
   PanelLeftOpen
 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { useChatSessionsFirestore, ChatSession } from '../hooks/useChatSessionsFirestore';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -82,7 +84,9 @@ const ReportIcon = ({ className = "w-6 h-6" }: { className?: string }) => (
 
 export function Layout({ children, title, headerActions, noPadding }: LayoutProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const userRole = localStorage.getItem('userRole') || 'admin';
+  const { user, logout } = useAuth();
 
   // Persistent sidebar fold state
   const [isSidebarFolded, setIsSidebarFolded] = React.useState(() => {
@@ -119,35 +123,45 @@ export function Layout({ children, title, headerActions, noPadding }: LayoutProp
     }
   };
 
-  // Shared chat sessions from localStorage for sidebar dropdown
-  const [chatSessions, setChatSessions] = React.useState(() => {
-    const saved = localStorage.getItem('chatSessions');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        return parsed.map((s: any) => ({ id: s.id, title: s.title }));
-      } catch (e) { }
-    }
-    return [
-      { id: 'session-1', title: 'Q3 Revenue Growth Analysis' },
-      { id: 'session-2', title: 'Hawker Sales Performance' },
-      { id: 'session-3', title: 'Marketing Expense ROI' }
-    ];
-  });
+  // Fetch chat sessions in real-time from Cloud Firestore
+  const { chatSessions, deleteChatSession, createChatSession } = useChatSessionsFirestore();
 
-  React.useEffect(() => {
-    const handleUpdate = () => {
-      const saved = localStorage.getItem('chatSessions');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          setChatSessions(parsed.map((s: any) => ({ id: s.id, title: s.title })));
-        } catch (e) { }
+  const handleNewChat = async () => {
+    try {
+      const initialMessages = [
+        {
+          id: String(Date.now()),
+          sender: 'ai' as const,
+          category: 'Akira',
+          text: 'Hello! I am Akira, your AI Assistant. I can help you with your business ledgers, or answer any general questions you might have!'
+        }
+      ];
+      const newId = await createChatSession('New Discussion', initialMessages);
+      navigate(`/assistant?chatId=${newId}`);
+    } catch (e) {
+      console.error("Failed to create new chat session:", e);
+    }
+  };
+
+  const handleDeleteSession = async (sessionId: string) => {
+    try {
+      await deleteChatSession(sessionId);
+
+      // If the deleted session was the current active one, redirect
+      const currentParams = new URLSearchParams(location.search);
+      const activeId = currentParams.get('chatId');
+      if (activeId === sessionId) {
+        const remaining = chatSessions.filter(s => s.id !== sessionId);
+        if (remaining.length > 0) {
+          navigate(`/assistant?chatId=${remaining[0].id}`);
+        } else {
+          navigate(`/assistant`);
+        }
       }
-    };
-    window.addEventListener('chatSessionsUpdated', handleUpdate);
-    return () => window.removeEventListener('chatSessionsUpdated', handleUpdate);
-  }, []);
+    } catch (e) {
+      console.error("Failed to delete chat session from Firestore:", e);
+    }
+  };
 
   return (
     <React.Fragment>
@@ -191,7 +205,7 @@ export function Layout({ children, title, headerActions, noPadding }: LayoutProp
                   </div>
                   <div className="flex flex-col text-left">
                     <span className="text-[13px] font-bold font-mono text-primary tracking-tight leading-tight">FinTech</span>
-                    <span className="text-[9.5px] text-on-surface-variant font-medium mt-0.5 uppercase tracking-wider">Enterprise</span>
+                    <span className="text-[9.5px] text-on-surface-variant font-medium mt-0.5 tracking-wider">KitaUntukKita</span>
                   </div>
                 </div>
                 <button
@@ -338,39 +352,67 @@ export function Layout({ children, title, headerActions, noPadding }: LayoutProp
                           className="flex flex-col items-center justify-center w-full h-[52px] group focus:outline-none cursor-pointer"
                           title="Akira"
                         >
-                          <div className={`w-14 h-8 rounded-full flex items-center justify-center transition-all duration-200 ${location.pathname === '/assistant' || openMenus.assistant ? 'bg-primary/10 text-primary font-bold' : 'text-on-surface-variant hover:bg-surface-container-high/50 hover:text-primary'}`}>
+                          <div className={`w-14 h-8 rounded-full flex items-center justify-center transition-all duration-200 ${location.pathname === '/assistant' ? 'bg-primary/10 text-primary font-bold' : 'text-on-surface-variant hover:bg-surface-container-high/50 hover:text-primary'}`}>
                             <AkiraIcon className="w-[20px] h-[20px] leading-none" />
                           </div>
-                          <span className={`text-[10px] font-bold mt-1 tracking-tight leading-none text-center transition-all duration-200 ${location.pathname === '/assistant' || openMenus.assistant ? 'text-primary' : 'text-on-surface-variant group-hover:text-primary'}`}>Akira</span>
+                          <span className={`text-[10px] font-bold mt-1 tracking-tight leading-none text-center transition-all duration-200 ${location.pathname === '/assistant' ? 'text-primary' : 'text-on-surface-variant group-hover:text-primary'}`}>Akira</span>
                         </button>
                       ) : (
-                        <button
-                          onClick={() => handleCollapsibleClick('assistant')}
-                          className="w-full flex items-center gap-4 px-4 h-12 rounded-full text-[14px] font-medium text-on-surface-variant hover:bg-surface-container-high/60 hover:text-primary transition-all duration-200 cursor-pointer group text-left"
-                        >
-                          <div className="w-6 h-6 flex items-center justify-center shrink-0">
-                            <AkiraIcon className="w-[20px] h-[20px] leading-none" />
-                          </div>
-                          <span className="animate-fadeIn">Akira</span>
-                        </button>
+                        <div className="w-full flex items-center justify-between pr-2 group">
+                          <button
+                            onClick={() => handleCollapsibleClick('assistant')}
+                            className="flex-1 flex items-center gap-4 px-4 h-12 rounded-full text-[14px] font-medium text-on-surface-variant hover:bg-surface-container-high/60 hover:text-primary transition-all duration-200 cursor-pointer text-left"
+                          >
+                            <div className="w-6 h-6 flex items-center justify-center shrink-0">
+                              <AkiraIcon className="w-[20px] h-[20px] leading-none" />
+                            </div>
+                            <span className="animate-fadeIn">Akira</span>
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleNewChat();
+                            }}
+                            className="w-8 h-8 flex items-center justify-center rounded-full text-on-surface-variant hover:text-primary hover:bg-primary/10 transition-all duration-200 cursor-pointer shrink-0"
+                            title="New Chat"
+                          >
+                            <span className="material-symbols-outlined text-[20px]">add</span>
+                          </button>
+                        </div>
                       )}
 
                       {!isSidebarFolded && openMenus.assistant && (
                         <div className="ml-4 pl-3.5 border-l border-outline-variant/60 flex flex-col space-y-1 mt-1 mb-1.5 text-left animate-fadeIn">
-                          {chatSessions.map((session) => {
+                          {chatSessions.map((session: ChatSession) => {
                             const isActive = location.pathname === '/assistant' && new URLSearchParams(location.search).get('chatId') === session.id;
                             return (
-                              <Link
+                              <div
                                 key={session.id}
-                                to={`/assistant?chatId=${session.id}`}
-                                className={`text-[12.5px] block py-[3px] transition-colors font-medium truncate max-w-[210px] ${isActive
-                                  ? 'text-primary font-bold'
-                                  : 'text-on-surface-variant hover:text-primary'
-                                  }`}
-                                title={session.title}
+                                className="group flex items-center justify-between w-full pr-2"
                               >
-                                {session.title}
-                              </Link>
+                                <Link
+                                  to={`/assistant?chatId=${session.id}`}
+                                  className={`text-[12.5px] block py-[3px] transition-colors font-medium truncate flex-1 ${isActive
+                                    ? 'text-primary font-bold'
+                                    : 'text-on-surface-variant hover:text-primary'
+                                    }`}
+                                  title={session.title}
+                                >
+                                  {session.title}
+                                </Link>
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleDeleteSession(session.id);
+                                  }}
+                                  className="opacity-0 group-hover:opacity-100 text-on-surface-variant/60 hover:text-error transition-all duration-200 cursor-pointer p-0.5 rounded hover:bg-surface-variant/40 shrink-0"
+                                  title="Delete chat"
+                                >
+                                  <span className="material-symbols-outlined text-[15px]">delete</span>
+                                </button>
+                              </div>
                             );
                           })}
                         </div>
@@ -527,8 +569,11 @@ export function Layout({ children, title, headerActions, noPadding }: LayoutProp
                 </div>
                 <Link
                   to="/landing"
-                  onClick={() => {
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    await logout();
                     localStorage.removeItem('userRole');
+                    window.location.href = '/landing';
                   }}
                   className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-surface-container-high/60 text-on-surface-variant hover:text-error transition-all duration-200 shrink-0"
                   title="Log Out"
@@ -547,15 +592,18 @@ export function Layout({ children, title, headerActions, noPadding }: LayoutProp
                       {userRole === 'admin' ? 'Administrator' : 'Hawker Staff'}
                     </span>
                     <span className="text-[9.5px] text-on-surface-variant truncate max-w-[150px] font-medium">
-                      {userRole === 'admin' ? 'admin@wise.my' : 'staff@wise.my'}
+                      {user?.email || (userRole === 'admin' ? 'admin@wise.my' : 'staff@wise.my')}
                     </span>
                   </div>
                 </div>
 
                 <Link
                   to="/landing"
-                  onClick={() => {
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    await logout();
                     localStorage.removeItem('userRole');
+                    window.location.href = '/landing';
                   }}
                   className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-surface-container-high/60 text-on-surface-variant hover:text-error transition-all duration-200 shrink-0"
                   title="Log Out"

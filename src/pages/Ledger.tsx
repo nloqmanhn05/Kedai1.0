@@ -2,8 +2,23 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Layout } from '../components/Layout';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import { useExpensesFirestore } from '../hooks/useExpensesFirestore';
+import * as XLSX from 'xlsx';
 
-const transactions = [
+interface LedgerTransaction {
+  staff: string[];
+  date: string;
+  description: string;
+  subtext: string;
+  category: string;
+  amount: string;
+  expenses: string;
+  balance: string;
+  type: 'income' | 'expense';
+  calculatedBalance?: number;
+}
+
+const transactions: LedgerTransaction[] = [
   {
     staff: ['Ahmad', 'Siti'],
     date: 'Oct 24, 2023',
@@ -65,7 +80,7 @@ export default function Ledger() {
     return [];
   }, []);
 
-  const [ledgerTransactions, setLedgerTransactions] = useState(() => {
+  const [ledgerTransactions, setLedgerTransactions] = useState<LedgerTransaction[]>(() => {
     const saved = localStorage.getItem('wise_ledger_registry');
     if (saved) {
       try {
@@ -154,7 +169,7 @@ export default function Ledger() {
     const dateObj = new Date(incomeDate);
     const dateFormatted = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
-    const newTransaction = {
+    const newTransaction: LedgerTransaction = {
       staff: [incomeStaff],
       date: dateFormatted,
       description: incomeName,
@@ -178,7 +193,9 @@ export default function Ledger() {
     setShowIncomeModal(false);
   };
 
-  const handleAddExpense = (e: React.FormEvent) => {
+  const { addExpense } = useExpensesFirestore();
+
+  const handleAddExpense = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!expenseName || !expenseAmount || !expenseStaff) {
       alert('Please fill in the required fields.');
@@ -190,7 +207,7 @@ export default function Ledger() {
     const dateObj = new Date(expenseDate);
     const dateFormatted = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
-    const newTransaction = {
+    const newTransaction: LedgerTransaction = {
       staff: [expenseStaff],
       date: dateFormatted,
       description: expenseName,
@@ -207,6 +224,22 @@ export default function Ledger() {
     // Update storage
     localStorage.setItem('wise_ledger_registry', JSON.stringify([newTransaction, ...ledgerTransactions]));
     
+    // Save to Firestore
+    try {
+      await addExpense({
+        description: expenseName,
+        subtext: expenseDescription || 'Manual Entry',
+        category: expenseCategory,
+        amount: parseFloat(expenseAmount),
+        date: dateFormatted,
+        staff: [expenseStaff],
+        type: 'expense'
+      });
+    } catch (err) {
+      console.error('Failed to save expense to Firestore:', err);
+      alert('Expense saved locally but failed to save to database. Please try again.');
+    }
+    
     // Reset and close
     setExpenseName('');
     setExpenseDescription('');
@@ -214,6 +247,60 @@ export default function Ledger() {
     setExpenseStaff('');
     setExpenseDate(new Date().toISOString().split('T')[0]);
     setShowExpenseModal(false);
+  };
+
+  const handleExportToExcel = () => {
+    // Prepare data for export
+    const exportData = filteredDisplayTransactions.map(tx => ({
+      'Staff': tx.staff.join(', '),
+      'Date': tx.date,
+      'Description': tx.description,
+      'Category': tx.category,
+      'Income (RM)': tx.type === 'income' ? tx.amount.replace('+', '').replace('RM ', '') : '',
+      'Expenses (RM)': tx.type === 'expense' ? tx.expenses.replace('-', '').replace('RM ', '') : '',
+      'Balance (RM)': tx.calculatedBalance?.toFixed(2) || '0.00',
+      'Type': tx.type,
+      'Notes': tx.subtext
+    }));
+
+    // Create a new workbook
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Transactions');
+
+    // Style the header row
+    const headerRange = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+    for (let col = headerRange.s.c; col <= headerRange.e.c; col++) {
+      const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+      if (ws[cellAddress]) {
+        ws[cellAddress].s = {
+          fill: { fgColor: { rgb: '4C22BD' } }, // Primary color
+          font: { bold: true, color: { rgb: 'FFFFFF' } },
+          alignment: { horizontal: 'center', vertical: 'center' }
+        };
+      }
+    }
+
+    // Set column widths
+    const columnWidths = [
+      { wch: 20 }, // Staff
+      { wch: 15 }, // Date
+      { wch: 25 }, // Description
+      { wch: 15 }, // Category
+      { wch: 12 }, // Income
+      { wch: 12 }, // Expenses
+      { wch: 15 }, // Balance
+      { wch: 10 }, // Type
+      { wch: 25 }  // Notes
+    ];
+    ws['!cols'] = columnWidths;
+
+    // Generate filename with current date
+    const now = new Date();
+    const filename = `Ledger_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}.xlsx`;
+
+    // Write the file
+    XLSX.writeFile(wb, filename);
   };
 
   return (
@@ -265,7 +352,11 @@ export default function Ledger() {
               </div>
             )}
             <div className="flex items-center gap-3">
-              <button className="w-10 h-10 flex items-center justify-center hover:bg-surface-container-high rounded-xl text-outline border border-outline-variant/30 transition-colors cursor-pointer">
+              <button 
+                onClick={handleExportToExcel}
+                className="w-10 h-10 flex items-center justify-center hover:bg-surface-container-high rounded-xl text-outline border border-outline-variant/30 transition-colors cursor-pointer hover:text-primary"
+                title="Download as Excel"
+              >
                 <span className="material-symbols-outlined text-[20px]">download</span>
               </button>
             </div>
@@ -298,7 +389,7 @@ export default function Ledger() {
                 className="grid grid-cols-7 gap-2 items-center rounded-2xl px-4 py-4 transition hover:bg-surface-container-low/50 cursor-default bg-transparent"
               >
                 <div className="col-span-1 text-[10px] text-on-surface-variant font-bold uppercase space-y-1 font-mono">
-                  {tx.staff.map(s => <div key={s} className="flex items-center gap-1"><span className="w-1 h-1 rounded-full bg-primary/40"></span>{s}</div>)}
+                  {tx.staff.map((s: string) => <div key={s} className="flex items-center gap-1"><span className="w-1 h-1 rounded-full bg-primary/40"></span>{s}</div>)}
                 </div>
                 <div className="col-span-1 text-xs text-on-surface font-mono">
                   <div className="font-bold">{tx.date.split(',')[0]}</div>

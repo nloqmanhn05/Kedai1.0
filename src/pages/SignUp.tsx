@@ -1,27 +1,55 @@
-import { Store, HelpCircle, BadgeInfo, EyeOff, Eye, ArrowRight } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { HelpCircle, EyeOff, Eye, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { AppIcon } from '../components/Layout';
 import { useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { motion } from 'framer-motion';
 
 export default function SignUp() {
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { signUp } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setError('');
+      setLoading(true);
+      await signUp(email, password);
+      // Ensure role is initialized as admin or staff, let's default to admin for new signups
+      // or handle it in a more robust way later.
+      localStorage.setItem('userRole', 'admin');
+      navigate('/dashboard');
+    } catch (err: any) {
+      setError('Failed to create an account. ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className="min-h-screen flex flex-col bg-brand-bg text-on-surface font-sans antialiased selection:bg-primary-container selection:text-on-primary-container">
-      {/* TopAppBar */}
-      <header className="full-width top-0 z-50 flat no shadows">
-        <div className="flex justify-between items-center w-full px-4 md:px-8 py-4 max-w-[1200px] mx-auto">
-          <Link to="/" className="flex items-center gap-2">
-            <AppIcon className="text-primary w-8 h-8" />
-            <span className="text-2xl font-bold font-mono text-primary">FinTech</span>
-          </Link>
-          <div className="flex items-center gap-4">
-            <button className="text-on-surface-variant hover:bg-surface-container-low transition-colors rounded-full p-2 flex items-center justify-center">
-              <HelpCircle className="w-6 h-6" />
-            </button>
-          </div>
-        </div>
-      </header>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.8, ease: "easeInOut" }}
+      className="min-h-screen flex flex-col bg-brand-bg text-on-surface font-sans antialiased selection:bg-primary-container selection:text-on-primary-container"
+    >
+      {/* Back Button */}
+      <div className="fixed top-4 left-4 z-50">
+        <Link
+          to="/landing"
+          className="flex items-center justify-center gap-2 px-3 py-2 rounded-full bg-primary/10 hover:bg-primary/20 text-primary transition-colors text-sm font-medium"
+          title="Go back to landing page"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back</span>
+        </Link>
+      </div>
 
       {/* Main Content Canvas */}
       <main className="flex-1 flex items-center justify-center p-4 md:p-8 w-full relative z-10 overflow-hidden">
@@ -40,40 +68,19 @@ export default function SignUp() {
             <p className="text-base text-on-surface-variant">Join FinTech to manage your stall efficiently</p>
           </div>
 
-          <form className="space-y-5">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div className="space-y-1.5">
-                <div className="floating-group relative w-full">
-                  <input
-                    type="text"
-                    id="fullName"
-                    name="fullName"
-                    placeholder=" "
-                    className="w-full bg-surface-container-low border border-outline-variant rounded-[24px] px-4 text-base text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all focus:bg-surface-container-lowest"
-                  />
-                  <label htmlFor="fullName">Full Name</label>
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <div className="floating-group relative w-full">
-                  <input
-                    type="text"
-                    id="stallName"
-                    name="stallName"
-                    placeholder=" "
-                    className="w-full bg-surface-container-low border border-outline-variant rounded-[24px] px-4 text-base text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all focus:bg-surface-container-lowest"
-                  />
-                  <label htmlFor="stallName">Stall Name</label>
-                </div>
-              </div>
-            </div>
+          {error && <div className="mb-4 p-3 bg-error/10 text-error text-sm rounded-lg border border-error/20">{error}</div>}
 
+          <form className="space-y-5" onSubmit={handleSubmit}>
+            {/* Email Field */}
             <div className="space-y-1.5">
               <div className="floating-group relative w-full">
                 <input
                   type="email"
                   id="email"
                   name="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
                   placeholder=" "
                   className="w-full bg-surface-container-low border border-outline-variant rounded-[24px] px-4 text-base text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all focus:bg-surface-container-lowest"
                 />
@@ -81,44 +88,23 @@ export default function SignUp() {
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <div className="floating-group relative w-full">
-                <input
-                  type="tel"
-                  id="phone"
-                  name="phone"
-                  placeholder=" "
-                  className="w-full bg-surface-container-low border border-outline-variant rounded-[24px] px-4 text-base text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all focus:bg-surface-container-lowest"
-                />
-                <label htmlFor="phone">Phone Number</label>
-              </div>
-            </div>
-
-            {/* Multi-line text field for long responses (MD3 Guideline) */}
-            <div className="space-y-1.5">
-              <div className="floating-group relative w-full">
-                <textarea
-                  id="stallDescription"
-                  name="stallDescription"
-                  placeholder=" "
-                  className="w-full bg-surface-container-low border border-outline-variant rounded-[24px] px-4 text-base text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all focus:bg-surface-container-lowest"
-                ></textarea>
-                <label htmlFor="stallDescription">Stall Description (Optional)</label>
-              </div>
-            </div>
-
+            {/* Password Field */}
             <div className="space-y-1.5">
               <div className="floating-group relative w-full">
                 <input
                   type={showPassword ? "text" : "password"}
                   id="password"
                   name="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={6}
                   placeholder=" "
                   className="w-full bg-surface-container-low border border-outline-variant rounded-[24px] pl-4 pr-[52px] text-base text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all focus:bg-surface-container-lowest"
                 />
                 <label htmlFor="password">Password</label>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-[12px] top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-primary transition-colors p-1 flex items-center justify-center z-10 cursor-pointer"
                 >
@@ -127,6 +113,7 @@ export default function SignUp() {
               </div>
             </div>
 
+            {/* Terms and Conditions */}
             <div className="flex items-start gap-3 pt-2">
               <div className="flex items-center h-5 mt-0.5">
                 <input
@@ -141,14 +128,20 @@ export default function SignUp() {
               </label>
             </div>
 
+            {/* Submit Button */}
             <div className="pt-6">
-              <Link to="/dashboard" className="w-full bg-primary hover:bg-primary/90 text-on-primary text-sm font-medium rounded-full py-4 transition-all active:scale-[0.98] shadow-sm flex items-center justify-center gap-2">
-                Create Account
+              <button 
+                type="submit" 
+                disabled={loading}
+                className="w-full bg-primary hover:bg-primary/90 text-on-primary text-sm font-medium rounded-full py-4 transition-all active:scale-[0.98] shadow-sm flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Creating...' : 'Create Account'}
                 <ArrowRight className="w-5 h-5" />
-              </Link>
+              </button>
             </div>
           </form>
 
+          {/* Footer Link */}
           <div className="mt-8 text-center border-t border-outline-variant/30 pt-6">
             <p className="text-sm text-on-surface-variant">
               Already have an account?
@@ -159,19 +152,29 @@ export default function SignUp() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-surface-container-low full-width bottom-0 border-t border-outline-variant flat no shadows mt-auto">
-        <div className="w-full py-8 px-4 md:px-8 flex flex-col md:flex-row justify-between items-center gap-4 max-w-[1200px] mx-auto">
-          <div className="flex flex-col items-center md:items-start gap-1">
-            <span className="text-base font-bold text-on-surface">FinTech</span>
-            <p className="text-sm text-on-surface-variant">© 2024 FinTech. All rights reserved.</p>
+      <footer className="bg-surface-container-low border-t border-outline-variant full-width bottom-0 z-10 relative">
+        <div className="w-full py-8 px-4 md:px-6 mt-auto flex flex-col md:flex-row justify-between items-center gap-4 max-w-[1200px] mx-auto">
+          <div className="text-base font-bold font-mono text-on-surface flex items-center gap-2">
+            <svg viewBox="0 0 24 24" className="text-primary w-5 h-5" fill="none" stroke="currentColor" strokeLinecap="butt" xmlns="http://www.w3.org/2000/svg">
+              <g transform="translate(12, 12) rotate(15)">
+                <line x1="0" y1="-11" x2="0" y2="11" strokeWidth="3.5"></line>
+                <line x1="-9" y1="0" x2="9" y2="0" strokeWidth="2.5"></line>
+                <line x1="-6.5" y1="-6.5" x2="6.5" y2="6.5" strokeWidth="2.5"></line>
+                <line x1="7" y1="-7" x2="-7" y2="7" strokeWidth="2.5"></line>
+              </g>
+            </svg>
+            FinTech
           </div>
-          <nav className="flex flex-wrap justify-center gap-6">
-            <a href="#" className="text-[11px] font-medium text-on-surface-variant hover:text-primary transition-colors">Privacy Policy</a>
-            <a href="#" className="text-[11px] font-medium text-on-surface-variant hover:text-primary transition-colors">Terms of Service</a>
-            <a href="#" className="text-[11px] font-medium text-on-surface-variant hover:text-primary transition-colors">Contact Support</a>
-          </nav>
+          <div className="flex gap-6">
+            <a href="#" className="text-sm text-on-surface-variant hover:text-primary transition-colors">Privacy Policy</a>
+            <a href="#" className="text-sm text-on-surface-variant hover:text-primary transition-colors">Terms of Service</a>
+            <a href="#" className="text-sm text-on-surface-variant hover:text-primary transition-colors">Contact Support</a>
+          </div>
+          <div className="text-[11px] text-on-surface-variant text-center md:text-right max-w-md">
+            © 2026 FinTech. All rights reserved to team buildprojectnexus. This is project is designed specially for project subject Software Engineering and Design
+          </div>
         </div>
       </footer>
-    </div>
+    </motion.div>
   );
 }
