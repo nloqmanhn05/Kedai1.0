@@ -14,7 +14,7 @@ export default function SignUp() {
   const [role, setRole] = useState<'admin' | 'staff'>('admin');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signUp } = useAuth();
+  const { signUp, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -33,9 +33,11 @@ export default function SignUp() {
         createdAt: new Date().toISOString()
       });
 
-      // Save role according to user's selection in localStorage
-      localStorage.setItem('userRole', role);
-      navigate('/dashboard');
+      // Sign out from the automatically logged-in session
+      await logout();
+
+      // Redirect to the login page with selected role
+      navigate(`/login?role=${role}`);
     } catch (err: any) {
       if (err.code === 'auth/email-already-in-use') {
         setError('you are not allowed');
