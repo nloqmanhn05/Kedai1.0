@@ -145,8 +145,11 @@ export default function Landing() {
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Link to="/register" className="bg-primary text-on-primary font-bold text-sm px-8 py-4 rounded-full hover:bg-primary-container transition-colors shadow-sm inline-flex items-center justify-center">Sign Up</Link>
               </motion.div>
-              <motion.button 
-                className="bg-transparent border border-outline-variant text-on-surface font-bold text-sm px-8 py-4 rounded-full hover:bg-surface-container-highest transition-colors flex items-center gap-2 group"
+              <motion.a 
+                href="https://drive.google.com/drive/folders/1IldzWvlt31ShgkOXSa5vXJ8CGA-qXvUx?usp=drive_link"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-transparent border border-outline-variant text-on-surface font-bold text-sm px-8 py-4 rounded-full hover:bg-surface-container-highest transition-colors flex items-center gap-2 group cursor-pointer decoration-none"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
@@ -158,7 +161,7 @@ export default function Landing() {
                   play_circle
                 </motion.span>
                 See How It Works
-              </motion.button>
+              </motion.a>
             </div>
           </motion.div>
           

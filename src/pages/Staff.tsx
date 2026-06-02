@@ -1,22 +1,20 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Layout } from '../components/Layout';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useStaffFirestore } from '../hooks/useStaffFirestore';
+import { StaffMember } from './types';
 
-interface StaffMember {
-  id: string | number;
-  name: string;
-  email: string;
-  role: string;
-  joinDate: string;
-  attendance: string;
-  attendancePct: number;
-  hours: number;
-  rate: number;
-  totalPay: number;
-  status: 'Paid' | 'Pending';
+// Extended interface for UI display (includes payroll/attendance data)
+interface StaffDisplay extends StaffMember {
+  attendance?: string;
+  attendancePct?: number;
+  hours?: number;
+  rate?: number;
+  totalPay?: number;
+  status?: 'Paid' | 'Pending';
 }
 
-const initialStaff: StaffMember[] = [
+const initialStaff: StaffDisplay[] = [
   {
     id: 1,
     name: 'Ahmad Razali',
@@ -176,56 +174,96 @@ const initialStaff: StaffMember[] = [
 ];
 
 export default function Staff() {
-  const [staffList, setStaffList] = useState<StaffMember[]>(() => {
+  // Fetch staff from Firestore
+  const { staff: firestoreStaff, loading, error, updateStaff, deleteStaff } = useStaffFirestore();
+  
+  // Enhanced staff list with UI data
+  const [staffList, setStaffList] = useState<StaffDisplay[]>(() => {
     const saved = localStorage.getItem('wise_staff_accounts');
     if (saved) {
       try {
         const accounts = JSON.parse(saved);
-        // Map registered accounts to include management metrics
         return accounts.map((acc: any) => ({
           id: acc.id,
           name: acc.name,
           email: acc.email,
           role: acc.position || 'Staff',
           joinDate: acc.joinDate || '01 Jan 2026',
+          phone: acc.phone,
+          clockInPin: acc.clockInPin || '',
           attendance: '22/22 days',
           attendancePct: 100,
           hours: 160,
           rate: 6.00,
           totalPay: 960.00,
-          status: acc.status === 'Active' ? 'Pending' : 'Pending' // Standard mapping
+          status: acc.status === 'Active' ? 'Pending' : 'Pending'
         }));
       } catch (e) {}
     }
     return initialStaff;
   });
 
-  // Listen for registry changes from Settings page
+  // Sync Firestore data with local state — new staff start at zero, accumulate as they clock in/out
+  useEffect(() => {
+    if (firestoreStaff.length > 0) {
+      const enhancedStaff = firestoreStaff.map(staff => {
+        const s = staff as any;
+        // Read persisted payroll stats from Firestore (default to 0 for brand-new staff)
+        const attendanceDays: number = s.attendanceDays ?? 0;
+        const hoursWorked: number = s.hoursWorked ?? 0;
+        const hourlyRate: number = parseFloat(s.rate) || 6.00;
+        const totalPay: number = s.totalPay ?? (hoursWorked * hourlyRate);
+        const totalWorkDays = 22; // current month work days
+        const attendancePct = totalWorkDays > 0 ? Math.round((attendanceDays / totalWorkDays) * 100) : 0;
+
+        return {
+          ...staff,
+          attendance: `${attendanceDays}/${totalWorkDays} days`,
+          attendancePct,
+          hours: hoursWorked,
+          rate: hourlyRate,
+          totalPay,
+          status: 'Pending' as const
+        };
+      });
+      setStaffList(enhancedStaff);
+    }
+  }, [firestoreStaff]);
+
+  // Still listen for registry changes from Settings page (for backwards compatibility)
+  // New staff from Settings start at zero
   useEffect(() => {
     const handleUpdate = () => {
-      const saved = localStorage.getItem('wise_staff_accounts');
-      if (saved) {
-        try {
-          const accounts = JSON.parse(saved);
-          setStaffList(accounts.map((acc: any) => ({
-            id: acc.id,
-            name: acc.name,
-            email: acc.email,
-            role: acc.position || 'Staff',
-            joinDate: acc.joinDate || '01 Jan 2026',
-            attendance: '22/22 days',
-            attendancePct: 100,
-            hours: 160,
-            rate: 6.00,
-            totalPay: 960.00,
-            status: 'Pending'
-          })));
-        } catch (e) {}
+      // Firestore real-time listener will pick up changes — no extra sync needed here
+      // But if Firestore hasn't loaded yet, fall back to localStorage
+      if (firestoreStaff.length === 0) {
+        const saved = localStorage.getItem('wise_staff_accounts');
+        if (saved) {
+          try {
+            const accounts = JSON.parse(saved);
+            setStaffList(accounts.map((acc: any) => ({
+              id: acc.id,
+              name: acc.name,
+              email: acc.email,
+              role: acc.position || 'Staff',
+              joinDate: acc.joinDate || '01 Jan 2026',
+              phone: acc.phone,
+              clockInPin: acc.verificationId || acc.clockInPin || '',
+              // New staff always start at zero — no fake data
+              attendance: '0/22 days',
+              attendancePct: 0,
+              hours: 0,
+              rate: parseFloat(acc.rate) || 6.00,
+              totalPay: 0,
+              status: 'Pending' as const
+            })));
+          } catch (e) {}
+        }
       }
     };
     window.addEventListener('staffAccountsUpdated', handleUpdate);
     return () => window.removeEventListener('staffAccountsUpdated', handleUpdate);
-  }, []);
+  }, [firestoreStaff]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [inactiveStaffCount, setInactiveStaffCount] = useState(2);
@@ -258,9 +296,18 @@ export default function Staff() {
     return staffList.reduce((acc, curr) => acc + curr.totalPay, 0);
   }, [staffList]);
 
-  const handleRemoveStaff = (id: string | number) => {
+  const handleRemoveStaff = async (id: string | number) => {
     if (confirm('Are you sure you want to remove this staff member?')) {
       setStaffList(staffList.filter(s => s.id !== id));
+      // Also delete from Firestore if it's a string ID (Firestore doc ID)
+      if (typeof id === 'string') {
+        try {
+          await deleteStaff(id);
+        } catch (err) {
+          console.error('Error deleting staff from Firestore:', err);
+          alert('Failed to delete staff member from database');
+        }
+      }
     }
   };
 

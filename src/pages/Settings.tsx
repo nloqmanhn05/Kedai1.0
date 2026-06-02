@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Layout } from '../components/Layout';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useStaffFirestore } from '../hooks/useStaffFirestore';
 
 interface StaffProfile {
   id: string;
@@ -18,11 +19,13 @@ interface StaffProfile {
   totalEarned: number;
   cashEarned: number;
   ewalletEarned: number;
-  masaMasuk: string;
-  masaKeluar: string;
-  jumlahJamKerja: number;
+  clockInTime: string;
+  clockOutTime: string;
+  workHours: number;
   overtimeApproved: boolean;
   shiftStatus: 'In Progress' | 'Ended';
+  clockInTimestamp?: number;
+  lastAttendanceDate?: string;
 }
 
 interface StaffAccount {
@@ -59,6 +62,7 @@ const tabs: TabOption[] = [
 ];
 
 function StaffSettingsView() {
+  const { staff: firestoreStaff, updateStaff } = useStaffFirestore();
   const [selectedStaffId, setSelectedStaffId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showToast, setShowToast] = useState(false);
@@ -105,11 +109,12 @@ function StaffSettingsView() {
           totalEarned: perf?.totalEarned || 0,
           cashEarned: perf?.cashEarned || 0,
           ewalletEarned: perf?.ewalletEarned || 0,
-          masaMasuk: perf?.masaMasuk || 'N/A',
-          masaKeluar: perf?.masaKeluar || 'N/A',
-          jumlahJamKerja: perf?.jumlahJamKerja || 0,
+          clockInTime: perf?.clockInTime || 'N/A',
+          clockOutTime: perf?.clockOutTime || 'N/A',
+          workHours: perf?.workHours || 0,
           overtimeApproved: perf?.overtimeApproved || false,
-          shiftStatus: perf?.shiftStatus || 'Ended'
+          shiftStatus: perf?.shiftStatus || 'Ended',
+          clockInTimestamp: perf?.clockInTimestamp || undefined
         };
       });
     }
@@ -123,49 +128,47 @@ function StaffSettingsView() {
     }
   }, [staffData, selectedStaffId]);
 
-  // Sync with Admin Staff Accounts registry
+  // Sync staffData with firestoreStaff real-time listener from Firestore
   useEffect(() => {
-    const handleAccountUpdate = () => {
-      const savedAccounts = localStorage.getItem('wise_staff_accounts');
+    if (firestoreStaff.length > 0) {
       const savedRegistry = localStorage.getItem('wise_staff_registry');
-      
-      let accounts = [];
-      try { accounts = savedAccounts ? JSON.parse(savedAccounts) : []; } catch (e) {}
-
-      let registry = [];
+      let registry: any[] = [];
       try { registry = savedRegistry ? JSON.parse(savedRegistry) : []; } catch (e) {}
 
-      const mappedData: StaffProfile[] = accounts.map((acc: any) => {
-        const perf = registry.find((r: any) => r.id === acc.id);
+      const mappedData: StaffProfile[] = firestoreStaff.map((item) => {
+        const perf = registry.find((r: any) => r.id === item.id);
+        const attendanceDays = item.attendanceDays ?? 0;
+        const hoursWorked = item.hoursWorked ?? 0;
+        const totalPay = item.totalPay ?? 0;
+
         return {
-          id: acc.id,
-          verificationId: acc.verificationId || '2250000',
-          name: acc.name,
-          role: acc.position || 'Staff',
-          status: (acc.status === 'Active' ? 'Active' : 'On Leave') as 'Active' | 'On Leave',
-          statusColor: acc.status === 'Active' ? 'bg-primary-container text-on-primary-container' : 'bg-surface-variant text-on-surface-variant',
-          totalHours: perf?.totalHours || 0,
+          id: String(item.id),
+          verificationId: item.clockInPin || item.pin || '2250000',
+          name: item.name,
+          role: item.role || 'Staff',
+          status: (item.status === 'Active' ? 'Active' : 'On Leave') as 'Active' | 'On Leave',
+          statusColor: item.status === 'Active' ? 'bg-primary-container text-on-primary-container' : 'bg-surface-variant text-on-surface-variant',
+          totalHours: hoursWorked,
           otHours: perf?.otHours || 0,
-          attendanceDays: perf?.attendanceDays || 0,
+          attendanceDays: attendanceDays,
           totalDays: perf?.totalDays || 22,
-          completionRate: perf?.completionRate || '0%',
+          completionRate: `${22 > 0 ? Math.round((attendanceDays / 22) * 100) : 0}%`,
           transactionsCount: perf?.transactionsCount || 0,
-          totalEarned: perf?.totalEarned || 0,
+          totalEarned: totalPay,
           cashEarned: perf?.cashEarned || 0,
           ewalletEarned: perf?.ewalletEarned || 0,
-          masaMasuk: perf?.masaMasuk || 'N/A',
-          masaKeluar: perf?.masaKeluar || 'N/A',
-          jumlahJamKerja: perf?.jumlahJamKerja || 0,
+          clockInTime: item.clockInTime || 'N/A',
+          clockOutTime: item.clockOutTime || 'N/A',
+          workHours: item.workHours || 0,
           overtimeApproved: perf?.overtimeApproved || false,
-          shiftStatus: perf?.shiftStatus || 'Ended'
+          shiftStatus: item.shiftStatus || 'Ended',
+          clockInTimestamp: item.clockInTimestamp || undefined,
+          lastAttendanceDate: item.lastAttendanceDate || undefined
         };
       });
       setStaffData(mappedData);
-    };
-
-    window.addEventListener('staffAccountsUpdated', handleAccountUpdate);
-    return () => window.removeEventListener('staffAccountsUpdated', handleAccountUpdate);
-  }, []);
+    }
+  }, [firestoreStaff]);
 
   // Persist staff changes to localStorage so Menu.tsx can read them
   useEffect(() => {
@@ -190,16 +193,75 @@ function StaffSettingsView() {
     const now = new Date();
     const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
     
+    const target = staffData.find(s => s.id === id);
+    if (!target) return;
+
+    let diffMins = 0;
+    if (target.clockInTimestamp) {
+      const diffMs = now.getTime() - target.clockInTimestamp;
+      diffMins = Math.floor(diffMs / 60000);
+    } else if (target.clockInTime && target.clockInTime !== 'N/A') {
+      try {
+        const [time, modifier] = target.clockInTime.split(' ');
+        let [hoursStr, minutesStr] = time.split(':');
+        let hours = parseInt(hoursStr, 10);
+        const minutes = parseInt(minutesStr, 10);
+        if (modifier === 'PM' && hours < 12) hours += 12;
+        if (modifier === 'AM' && hours === 12) hours = 0;
+        const clockInDate = new Date();
+        clockInDate.setHours(hours, minutes, 0, 0);
+        const diffMs = now.getTime() - clockInDate.getTime();
+        diffMins = Math.max(0, Math.floor(diffMs / 60000));
+      } catch (err) {}
+    }
+
+    const hoursPart = Math.floor(diffMins / 60);
+    const minsPart = diffMins % 60;
+    // Format minutes as decimal parts: e.g. 5 minutes -> 0.05, 60 minutes -> 1.00
+    const recordedHours = parseFloat((hoursPart + minsPart / 100).toFixed(2));
+
     setStaffData(prev => prev.map(s => {
       if (s.id === id) {
         return {
           ...s,
           shiftStatus: 'Ended',
-          masaKeluar: timeStr
+          clockOutTime: timeStr,
+          workHours: recordedHours,
+          totalHours: parseFloat((s.totalHours + recordedHours).toFixed(2))
         };
       }
       return s;
     }));
+
+    // Update stats AND shift fields in Firestore so onSnapshot re-sync keeps them
+    const dbStaff = firestoreStaff.find(s => s.id === id);
+    if (dbStaff) {
+      const currentDbHours = (dbStaff as any).hoursWorked || 0;
+      const currentDbAttendance = (dbStaff as any).attendanceDays || 0;
+      const rate = parseFloat((dbStaff as any).rate) || 6.00;
+      
+      // Check if they already clocked in/out today to prevent duplicate attendance increments on the same day
+      const todayDate = new Date().toISOString().split('T')[0];
+      const lastAttendanceDate = (dbStaff as any).lastAttendanceDate || '';
+      const incrementAttendance = lastAttendanceDate !== todayDate;
+
+      // Add the recorded hours (representing hours + minutes/100)
+      const newHours = parseFloat((currentDbHours + recordedHours).toFixed(2));
+      const newAttendance = incrementAttendance ? currentDbAttendance + 1 : currentDbAttendance;
+      const newPay = parseFloat((newHours * rate).toFixed(2));
+
+      updateStaff(id, {
+        hoursWorked: newHours,
+        attendanceDays: newAttendance,
+        totalPay: newPay,
+        shiftStatus: 'Ended',
+        clockOutTime: timeStr,
+        workHours: recordedHours,
+        clockInTimestamp: null,
+        lastAttendanceDate: todayDate
+      }).catch(err => console.error("Error updating Firestore stats:", err));
+    }
+
     setToastMessage(`Syif berjaya ditutup untuk ${activeStaff.name}!`);
     setShowToast(true);
     setTimeout(() => setShowToast(false), 3000);
@@ -214,13 +276,24 @@ function StaffSettingsView() {
         return {
           ...s,
           shiftStatus: 'In Progress',
-          masaMasuk: timeStr,
-          masaKeluar: 'N/A',
-          jumlahJamKerja: 0.0
+          clockInTime: timeStr,
+          clockOutTime: 'N/A',
+          workHours: 0.0,
+          clockInTimestamp: now.getTime()
         };
       }
       return s;
     }));
+
+    // Persist shift fields to Firestore so onSnapshot re-sync keeps them
+    updateStaff(id, {
+      shiftStatus: 'In Progress',
+      clockInTime: timeStr,
+      clockOutTime: 'N/A',
+      workHours: 0,
+      clockInTimestamp: now.getTime()
+    }).catch(err => console.error("Error updating Firestore clock-in:", err));
+
     setToastMessage(`Clock In recorded for ${activeStaff.name}!`);
     setShowToast(true);
     setTimeout(() => setShowToast(false), 3000);
@@ -433,17 +506,17 @@ function StaffSettingsView() {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
                   <div className="flex flex-col gap-2">
-                    <span className="font-label-sm text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Masa Masuk</span>
-                    <span className="font-mono font-bold text-xl text-on-surface">{activeStaff.masaMasuk}</span>
+                    <span className="font-label-sm text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Clock In Time</span>
+                    <span className="font-mono font-bold text-xl text-on-surface">{activeStaff.clockInTime}</span>
                   </div>
                   <div className="flex flex-col gap-2">
-                    <span className="font-label-sm text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Masa Keluar</span>
-                    <span className="font-mono font-bold text-xl text-on-surface">{activeStaff.masaKeluar}</span>
+                    <span className="font-label-sm text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Clock Out Time</span>
+                    <span className="font-mono font-bold text-xl text-on-surface">{activeStaff.clockOutTime}</span>
                   </div>
                   <div className="flex flex-col gap-2">
-                    <span className="font-label-sm text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Jumlah Jam Kerja</span>
+                    <span className="font-label-sm text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Work Hours</span>
                     <span className="font-mono font-bold text-xl text-on-surface">
-                      {activeStaff.jumlahJamKerja} <span className="text-sm font-normal text-on-surface-variant">hrs</span>
+                      {activeStaff.workHours} <span className="text-sm font-normal text-on-surface-variant">hrs</span>
                     </span>
                   </div>
                 </div>
@@ -572,6 +645,7 @@ function StaffSettingsView() {
 }
 
 export default function Settings() {
+  const { staff: firestoreStaff, addStaff, updateStaff, deleteStaff } = useStaffFirestore();
   const userRole = localStorage.getItem('userRole') || 'admin';
 
   if (userRole === 'staff') {
@@ -637,6 +711,30 @@ export default function Settings() {
       { id: 'EMP-091', verificationId: '2250105', name: 'Zulaikha Aziz', position: 'Cleaner', email: 'zulaikha.a@company.com', ic: '900101-14-5555', phone: '+60124455667', joinDate: '2024-03-01', shift: 'Morning', rate: '5.50', lastLogin: 'Today, 06:45 AM', status: 'Active' }
     ];
   });
+
+  // Sync firestoreStaff into staffList when it changes
+  useEffect(() => {
+    if (firestoreStaff && firestoreStaff.length > 0) {
+      const mapped = firestoreStaff.map(s => {
+        const item = s as any;
+        return {
+          id: item.id,
+          verificationId: item.clockInPin || item.pin || '2250000',
+          name: item.name,
+          position: item.role || 'Staff',
+          email: item.email,
+          ic: item.ic || '',
+          phone: item.phone || '',
+          joinDate: item.joinDate || '',
+          shift: item.shift || 'Morning',
+          rate: String(item.rate || '6.00'),
+          lastLogin: item.lastLogin || 'Never logged in',
+          status: (item.status === 'Active' || item.status === 'Inactive') ? item.status : 'Active'
+        };
+      });
+      setStaffList(mapped);
+    }
+  }, [firestoreStaff]);
 
   useEffect(() => {
     localStorage.setItem('wise_staff_accounts', JSON.stringify(staffList));
@@ -1274,9 +1372,12 @@ export default function Settings() {
                                       <button
                                         onClick={() => {
                                           if (confirm(`Activate access account for ${staff.name}?`)) {
-                                            setStaffList(prev => prev.map(s => s.id === staff.id ? { ...s, status: 'Active' } : s));
-                                            setShowToast(true);
-                                            setTimeout(() => setShowToast(false), 3000);
+                                            updateStaff(staff.id, { status: 'Active' }).then(() => {
+                                              setShowToast(true);
+                                              setTimeout(() => setShowToast(false), 3000);
+                                            }).catch(err => {
+                                              alert('Error activating account: ' + err.message);
+                                            });
                                           }
                                         }}
                                         className="p-2 text-primary hover:bg-primary-container/20 rounded-full transition-colors cursor-pointer"
@@ -1288,9 +1389,12 @@ export default function Settings() {
                                       <button
                                         onClick={() => {
                                           if (confirm(`Deactivate access account for ${staff.name}?`)) {
-                                            setStaffList(prev => prev.map(s => s.id === staff.id ? { ...s, status: 'Inactive' } : s));
-                                            setShowToast(true);
-                                            setTimeout(() => setShowToast(false), 3000);
+                                            updateStaff(staff.id, { status: 'Inactive' }).then(() => {
+                                              setShowToast(true);
+                                              setTimeout(() => setShowToast(false), 3000);
+                                            }).catch(err => {
+                                              alert('Error deactivating account: ' + err.message);
+                                            });
                                           }
                                         }}
                                         className="p-2 text-on-surface-variant hover:text-error hover:bg-error-container/20 rounded-full transition-colors cursor-pointer"
@@ -1351,6 +1455,19 @@ export default function Settings() {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div className="space-y-4">
+                            <div className="space-y-2">
+                              <label className="font-label-lg text-xs font-bold text-on-surface uppercase tracking-wider">Clock In/Out ID (PIN)</label>
+                              <input
+                                type="text"
+                                maxLength={7}
+                                placeholder="2250***"
+                                value={newStaffVerifyId}
+                                onChange={(e) => setNewStaffVerifyId(e.target.value.replace(/\D/g, ''))}
+                                className="w-full bg-primary/5 border border-primary/20 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all px-4 py-3 rounded-2xl text-sm font-mono font-bold text-primary"
+                              />
+                              <p className="text-[9px] text-outline font-medium px-1 italic">Used for verification at the terminal (7 digits starting with 2250).</p>
+                            </div>
+
                             <div className="space-y-2">
                               <label className="font-label-lg text-xs font-bold text-on-surface uppercase tracking-wider">Full Name</label>
                               <input
@@ -1483,32 +1600,33 @@ export default function Settings() {
                                 alert('Please complete all form fields.');
                                 return;
                               }
-                              const randomNum = Math.floor(100 + Math.random() * 900);
-                              const newStaffObj: StaffAccount = {
-                                id: `EMP-${randomNum}`,
-                                verificationId: newStaffVerifyId,
+                              addStaff({
                                 name: newStaffName,
-                                position: newStaffRole,
                                 email: newStaffEmail,
-                                ic: newStaffIC,
-                                phone: newStaffPhone,
+                                role: newStaffRole,
                                 joinDate: newStaffJoinDate,
+                                phone: newStaffPhone || undefined,
+                                clockInPin: newStaffVerifyId,
+                                pin: newStaffVerifyId,
+                                ic: newStaffIC,
                                 shift: newStaffShift,
                                 rate: newStaffRate,
                                 lastLogin: 'Never logged in',
                                 status: activateAccount ? 'Active' : 'Inactive'
-                              };
-                              setStaffList(prev => [...prev, newStaffObj]);
-                              setShowAddStaffModal(false);
-                              setNewStaffName('');
-                              setNewStaffEmail('');
-                              setNewStaffIC('');
-                              setNewStaffPhone('');
-                              setNewStaffJoinDate('');
+                              }).then(() => {
+                                setShowAddStaffModal(false);
+                                setNewStaffName('');
+                                setNewStaffEmail('');
+                                setNewStaffIC('');
+                                setNewStaffPhone('');
+                                setNewStaffJoinDate('');
 
-                              // Show success toast
-                              setShowToast(true);
-                              setTimeout(() => setShowToast(false), 3000);
+                                // Show success toast
+                                setShowToast(true);
+                                setTimeout(() => setShowToast(false), 3000);
+                              }).catch(err => {
+                                alert('Error saving staff to Firestore: ' + err.message);
+                              });
                             }}
                             className="bg-primary text-on-primary hover:bg-surface-tint font-label-lg text-xs font-bold px-6 py-2.5 rounded-full transition-colors cursor-pointer active:scale-95 duration-100"
                           >
@@ -1524,42 +1642,82 @@ export default function Settings() {
                 <AnimatePresence>
                   {showEditStaffModal && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowEditStaffModal(false)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-                      <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative bg-surface-container-lowest border border-outline-variant/60 w-full max-w-2xl rounded-3xl p-8 shadow-2xl z-10 space-y-6">
-                        <div className="border-b border-outline-variant/20 pb-4">
+                      {/* Backdrop */}
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setShowEditStaffModal(false)}
+                        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                      />
+
+                      {/* Modal Panel */}
+                      <motion.div
+                        initial={{ scale: 0.95, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.95, opacity: 0 }}
+                        className="relative bg-surface-container-lowest border border-outline-variant/60 w-full max-w-2xl rounded-3xl p-6 md:p-8 shadow-2xl z-10 space-y-6"
+                      >
+                        <div>
                           <h3 className="font-headline-sm text-2xl font-bold text-on-surface">Edit Staff Profile</h3>
                           <p className="text-xs text-on-surface-variant font-medium mt-1 uppercase tracking-widest font-mono">Managing ID: {editingStaffId}</p>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div className="space-y-4">
-                            <div className="space-y-1.5">
-                              <label className="font-label-lg text-[10px] font-bold text-primary uppercase tracking-widest">Clock In/Out ID (PIN)</label>
-                              <input type="text" maxLength={7} value={newStaffVerifyId} onChange={(e) => setNewStaffVerifyId(e.target.value.replace(/\D/g, ''))} className="w-full bg-primary/5 border border-primary/20 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all px-4 py-3 rounded-2xl text-sm font-mono font-bold text-primary" placeholder="2250***" />
+                            <div className="space-y-2">
+                              <label className="font-label-lg text-xs font-bold text-on-surface uppercase tracking-wider">Clock In/Out ID (PIN)</label>
+                              <input
+                                type="text"
+                                maxLength={7}
+                                placeholder="2250***"
+                                value={newStaffVerifyId}
+                                onChange={(e) => setNewStaffVerifyId(e.target.value.replace(/\D/g, ''))}
+                                className="w-full bg-primary/5 border border-primary/20 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all px-4 py-3 rounded-2xl text-sm font-mono font-bold text-primary"
+                              />
                               <p className="text-[9px] text-outline font-medium px-1 italic">Used for verification at the terminal (7 digits starting with 2250).</p>
                             </div>
-                            <div className="space-y-1.5">
-                              <label className="font-label-lg text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Full Name</label>
-                              <input type="text" value={newStaffName} onChange={(e) => setNewStaffName(e.target.value)} className="w-full bg-surface-container-low border border-outline-variant/40 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all px-4 py-3 rounded-2xl text-sm font-medium" />
-                            </div>
-                            <div className="space-y-1.5">
-                              <label className="font-label-lg text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">IC Number</label>
-                              <input type="text" value={newStaffIC} onChange={(e) => setNewStaffIC(e.target.value)} className="w-full bg-surface-container-low border border-outline-variant/40 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all px-4 py-3 rounded-2xl text-sm font-medium" />
-                            </div>
-                            <div className="space-y-1.5">
-                              <label className="font-label-lg text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Phone Number</label>
-                              <input type="text" value={newStaffPhone} onChange={(e) => setNewStaffPhone(e.target.value)} className="w-full bg-surface-container-low border border-outline-variant/40 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all px-4 py-3 rounded-2xl text-sm font-medium" />
-                            </div>
-                          </div>
 
-                          <div className="space-y-4">
-                            <div className="space-y-1.5">
-                              <label className="font-label-lg text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Email Address</label>
-                              <input type="email" value={newStaffEmail} onChange={(e) => setNewStaffEmail(e.target.value)} className="w-full bg-surface-container-low border border-outline-variant/40 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all px-4 py-3 rounded-2xl text-sm font-medium" />
+                            <div className="space-y-2">
+                              <label className="font-label-lg text-xs font-bold text-on-surface uppercase tracking-wider">Full Name</label>
+                              <input
+                                type="text"
+                                placeholder="e.g. Siti Aminah"
+                                value={newStaffName}
+                                onChange={(e) => setNewStaffName(e.target.value)}
+                                className="w-full bg-surface-container-low border border-outline-variant/40 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all px-4 py-3 rounded-2xl text-sm"
+                              />
                             </div>
-                            <div className="space-y-1.5">
-                              <label className="font-label-lg text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Position / Role</label>
-                              <select value={newStaffRole} onChange={(e) => setNewStaffRole(e.target.value)} className="w-full bg-surface-container-low border border-outline-variant/40 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all px-4 py-3 rounded-2xl text-sm font-medium">
+
+                            <div className="space-y-2">
+                              <label className="font-label-lg text-xs font-bold text-on-surface uppercase tracking-wider">IC Number</label>
+                              <input 
+                                type="text"
+                                placeholder="900101-14-5555"
+                                value={newStaffIC}
+                                onChange={(e) => setNewStaffIC(e.target.value)}
+                                className="w-full bg-surface-container-low border border-outline-variant/40 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all px-4 py-3 rounded-2xl text-sm"
+                              />
+                            </div>
+
+                            <div className="space-y-2">
+                              <label className="font-label-lg text-xs font-bold text-on-surface uppercase tracking-wider">Phone Number</label>
+                              <input 
+                                type="text"
+                                placeholder="+60123456789"
+                                value={newStaffPhone}
+                                onChange={(e) => setNewStaffPhone(e.target.value)}
+                                className="w-full bg-surface-container-low border border-outline-variant/40 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all px-4 py-3 rounded-2xl text-sm"
+                              />
+                            </div>
+
+                            <div className="space-y-2">
+                              <label className="font-label-lg text-xs font-bold text-on-surface uppercase tracking-wider">Position / Role</label>
+                              <select
+                                value={newStaffRole}
+                                onChange={(e) => setNewStaffRole(e.target.value)}
+                                className="w-full bg-surface-container-low border border-outline-variant/40 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all px-4 py-3 rounded-2xl text-sm cursor-pointer"
+                              >
                                 <option value="Cashier">Cashier</option>
                                 <option value="Supervisor">Supervisor</option>
                                 <option value="Kitchen Staff">Kitchen Staff</option>
@@ -1567,19 +1725,53 @@ export default function Settings() {
                                 <option value="Other">Other</option>
                               </select>
                             </div>
-                            <div className="space-y-1.5">
-                              <label className="font-label-lg text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Default Shift</label>
-                              <select value={newStaffShift} onChange={(e) => setNewStaffShift(e.target.value)} className="w-full bg-surface-container-low border border-outline-variant/40 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all px-4 py-3 rounded-2xl text-sm font-medium">
+                          </div>
+
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <label className="font-label-lg text-xs font-bold text-on-surface uppercase tracking-wider">Email Address</label>
+                              <input
+                                type="email"
+                                placeholder="name@company.com"
+                                value={newStaffEmail}
+                                onChange={(e) => setNewStaffEmail(e.target.value)}
+                                className="w-full bg-surface-container-low border border-outline-variant/40 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all px-4 py-3 rounded-2xl text-sm"
+                              />
+                            </div>
+
+                            <div className="space-y-2">
+                              <label className="font-label-lg text-xs font-bold text-on-surface uppercase tracking-wider">Start Date</label>
+                              <input 
+                                type="date"
+                                value={newStaffJoinDate}
+                                onChange={(e) => setNewStaffJoinDate(e.target.value)}
+                                className="w-full bg-surface-container-low border border-outline-variant/40 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all px-4 py-3 rounded-2xl text-sm"
+                              />
+                            </div>
+
+                            <div className="space-y-2">
+                              <label className="font-label-lg text-xs font-bold text-on-surface uppercase tracking-wider">Default Shift</label>
+                              <select 
+                                value={newStaffShift}
+                                onChange={(e) => setNewStaffShift(e.target.value)}
+                                className="w-full bg-surface-container-low border border-outline-variant/40 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all px-4 py-3 rounded-2xl text-sm cursor-pointer"
+                              >
                                 <option value="Morning">Morning</option>
                                 <option value="Afternoon">Afternoon</option>
                                 <option value="Night">Night</option>
                               </select>
                             </div>
-                            <div className="space-y-1.5">
-                              <label className="font-label-lg text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Hourly Rate</label>
+
+                            <div className="space-y-2">
+                              <label className="font-label-lg text-xs font-bold text-on-surface uppercase tracking-wider">Hourly Rate</label>
                               <div className="flex items-center bg-surface-container-low border border-outline-variant/40 rounded-2xl overflow-hidden focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all">
-                                <span className="px-4 py-3 text-outline font-bold text-xs font-mono border-r border-outline-variant/30 select-none">RM</span>
-                                <input type="text" value={newStaffRate} onChange={(e) => setNewStaffRate(e.target.value)} className="flex-1 px-4 py-3 bg-transparent border-none outline-none text-sm font-mono font-bold" />
+                                <span className="px-4 py-3 text-outline font-bold text-sm font-mono border-r border-outline-variant/30 shrink-0 select-none bg-surface-container-low">RM</span>
+                                <input 
+                                  type="text"
+                                  value={newStaffRate}
+                                  onChange={(e) => setNewStaffRate(e.target.value)}
+                                  className="flex-1 min-w-0 px-4 py-3 bg-transparent border-none outline-none text-sm text-on-surface font-mono focus:ring-0"
+                                />
                               </div>
                             </div>
                           </div>
@@ -1587,35 +1779,56 @@ export default function Settings() {
 
                         <div className="flex items-center gap-4 py-4 border-t border-outline-variant/20 pt-6">
                           <label className="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" checked={activateAccount} onChange={(e) => setActivateAccount(e.target.checked)} className="sr-only peer" />
-                            <div className="w-11 h-6 bg-outline rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-outline-variant after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                            <input 
+                              type="checkbox" 
+                              checked={activateAccount}
+                              onChange={(e) => setActivateAccount(e.target.checked)}
+                              className="sr-only peer text-primary cursor-pointer"
+                            />
+                            <div className="w-11 h-6 bg-outline rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-outline-variant after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                           </label>
-                          <span className="text-sm text-on-surface font-bold">Active Employment Status</span>
+                          <span className="text-body-md text-on-surface font-semibold">Activate Staff Account (Allow Login)</span>
                         </div>
 
                         <div className="flex items-center justify-end gap-3 pt-2">
-                          <button onClick={() => setShowEditStaffModal(false)} className="px-6 py-2.5 rounded-full border border-outline-variant/60 text-on-surface hover:bg-surface-container-low text-xs font-bold transition-colors">Cancel</button>
                           <button
                             onClick={() => {
-                              setStaffList(prev => prev.map(s => s.id === editingStaffId ? {
-                                ...s,
-                                verificationId: newStaffVerifyId,
-                                name: newStaffName,
-                                position: newStaffRole,
-                                email: newStaffEmail,
-                                ic: newStaffIC,
-                                phone: newStaffPhone,
-                                joinDate: newStaffJoinDate,
-                                shift: newStaffShift,
-                                rate: newStaffRate,
-                                status: activateAccount ? 'Active' : 'Inactive'
-                              } : s));
                               setShowEditStaffModal(false);
-                              setToastMessage(`Profile for ${newStaffName} updated successfully.`);
-                              setShowToast(true);
-                              setTimeout(() => setShowToast(false), 3000);
                             }}
-                            className="bg-primary text-on-primary font-label-lg text-xs font-bold px-8 py-2.5 rounded-full shadow-sm hover:bg-primary/95 transition-all"
+                            className="px-5 py-2.5 rounded-full border border-outline-variant/50 text-on-surface hover:bg-surface-container-low text-xs font-bold cursor-pointer transition-colors"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (!newStaffName.trim() || !newStaffEmail.trim()) {
+                                alert('Please complete all form fields.');
+                                return;
+                              }
+                              if (editingStaffId) {
+                                updateStaff(editingStaffId, {
+                                  name: newStaffName,
+                                  email: newStaffEmail,
+                                  role: newStaffRole,
+                                  joinDate: newStaffJoinDate,
+                                  phone: newStaffPhone || undefined,
+                                  clockInPin: newStaffVerifyId,
+                                  pin: newStaffVerifyId,
+                                  ic: newStaffIC,
+                                  shift: newStaffShift,
+                                  rate: newStaffRate,
+                                  status: activateAccount ? 'Active' : 'Inactive'
+                                }).then(() => {
+                                  setShowEditStaffModal(false);
+                                  setToastMessage(`Profile for ${newStaffName} updated successfully.`);
+                                  setShowToast(true);
+                                  setTimeout(() => setShowToast(false), 3000);
+                                }).catch(err => {
+                                  alert('Error updating staff in Firestore: ' + err.message);
+                                });
+                              }
+                            }}
+                            className="bg-primary text-on-primary hover:bg-surface-tint font-label-lg text-xs font-bold px-6 py-2.5 rounded-full transition-colors cursor-pointer active:scale-95 duration-100"
                           >
                             Save Changes
                           </button>

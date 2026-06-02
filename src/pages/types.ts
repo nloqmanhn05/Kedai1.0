@@ -49,3 +49,25 @@ export interface Expense {
   timestamp?: number;
 }
 
+export interface StaffMember {
+  id: string | number;
+  name: string;
+  email: string;
+  role: string;
+  joinDate: string;
+  phone?: string;
+  clockInPin?: string;
+  pin?: string;
+  timestamp?: number;
+  attendanceDays?: number;
+  hoursWorked?: number;
+  totalPay?: number;
+  shiftStatus?: 'In Progress' | 'Ended';
+  clockInTime?: string;
+  clockOutTime?: string;
+  workHours?: number;
+  clockInTimestamp?: number;
+  lastAttendanceDate?: string;
+  status?: string;
+}
+
