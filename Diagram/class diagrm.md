@@ -15,6 +15,7 @@ This diagram represents the class structure and relationships of the Kedai busin
 
 ## Class Diagram - Mermaid Code
 
+```mermaid 
 classDiagram
     %% Inheritance
     User <|-- Admin
@@ -105,7 +106,7 @@ classDiagram
 
     Ledger ..> FirebaseService : persists
     Stock ..> FirebaseService : persists
-
+```
     ## Key Features
 
 ### Class Hierarchy:
