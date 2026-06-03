@@ -72,7 +72,6 @@ npm run build
 This compiles static assets into the `dist/` directory, which can be deployed to static hosting providers like Firebase Hosting, Vercel, or Netlify.
 
 ---
----
 
 ## 📊 Production Diagram 
 
