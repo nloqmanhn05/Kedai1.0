@@ -4,12 +4,11 @@ This diagram illustrates the high-level architecture of the Kedai business manag
 
 
 
-
+```mermaid
 graph TB
     subgraph Presentation["Presentation Layer"]
         UI["UI Components (Landing, Auth, Dashboard, POS, Ledger, Stock, Staff, Chat)"]
     end
-
     subgraph StateLogic["Client State & Hook Layer"]
         AuthCtx["AuthContext Provider"]
         StockHook["useStockFirestore"]
@@ -68,7 +67,7 @@ graph TB
     Firestore --- Expenses
     Firestore --- Chats
     Firestore --- Metadata
-
+```
 
     ---
 
