@@ -1,5 +1,5 @@
 ```mermaid
-    autonumber
+   
     participant User
     participant UI as Web/Mobile UI
     participant AuthCtx as AuthContext Provider
