@@ -93,3 +93,12 @@ Paste the corrected Mermaid code directly
 * **Smart Attendance Tracking**: Prevent duplicate logs with date-based attendance tracking (increments only once per day).
 * **Automated Payroll**: Auto-calculate accumulated working hours, overtime multipliers, and monthly payout statistics.
 * **Akira AI Assistant**: Google Gemini-powered chat assistant providing predictions and optimization recommendations for your stall.
+
+## 🌏 Our Social Impact
+FinTech directly supports UN Sustainable Development Goals:
+
+* **SDG 8 (Decent Work & Economic Growth)** :  We help 100,000+ informal business owners scale revenue and provide fair wages to their staff.
+* **SDG 10 (Reduced Inequalities)** :  We give hawkers the same financial tools as enterprises. They can now apply for bank loans with digital proof of income.
+* **SDG 1 (No Poverty)** :  Better business management → higher profitability → poverty reduction for business owners and their families.
+
+* Our Vision: We want to see 50,000+ Malaysian informal businesses formalized and financially visible.
