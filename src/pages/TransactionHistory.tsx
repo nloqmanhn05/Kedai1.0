@@ -118,7 +118,17 @@ export default function TransactionHistory() {
   const itemsPerPage = 5;
 
   // Get live data from Firestore instead of localStorage
-  const { transactions: allTransactions, loading } = useTransactionsFirestore();
+  const { transactions: allTransactions, loading, deleteTransaction } = useTransactionsFirestore();
+
+  const handleDeleteTransaction = async (id: string | number, orderId: string) => {
+    if (window.confirm(`Are you sure you want to delete transaction ${orderId}?`)) {
+      try {
+        await deleteTransaction(id);
+      } catch (err) {
+        alert("Failed to delete transaction. Please try again.");
+      }
+    }
+  };
 
   // Extract unique staff and dates for dynamic filters
   const availableStaff = useMemo(() => {
@@ -289,12 +299,13 @@ export default function TransactionHistory() {
           {/* Table */}
           <div className="w-full text-xs">
             {/* Grid Header */}
-            <div className="grid grid-cols-5 bg-surface-container-low/30 border-b border-outline-variant/20 text-outline uppercase tracking-wider py-4 px-6 font-bold">
+            <div className="grid grid-cols-6 bg-surface-container-low/30 border-b border-outline-variant/20 text-outline uppercase tracking-wider py-4 px-6 font-bold">
               <div>Date</div>
               <div>Time</div>
               <div>Order ID</div>
               <div>Staff Name</div>
               <div className="text-center">Amount (RM)</div>
+              <div className="text-right">Action</div>
             </div>
 
             {/* Grid Body */}
@@ -327,7 +338,7 @@ export default function TransactionHistory() {
                       initial={{ opacity: 0, y: 4 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.98 }}
-                      className="grid grid-cols-5 items-center hover:bg-surface-container-low/20 transition-colors group cursor-default py-4 px-6 w-full"
+                      className="grid grid-cols-6 items-center hover:bg-surface-container-low/20 transition-colors group cursor-default py-4 px-6 w-full"
                     >
                       <div className="font-medium whitespace-nowrap">{tx.date}</div>
                       <div className="font-data whitespace-nowrap">{tx.time}</div>
@@ -344,6 +355,15 @@ export default function TransactionHistory() {
                       </div>
                       <div className="font-bold text-primary whitespace-nowrap font-data text-center">
                         RM {tx.amount.toFixed(2)}
+                      </div>
+                      <div className="text-right">
+                        <button
+                          onClick={() => handleDeleteTransaction(tx.id, tx.orderId)}
+                          className="text-error hover:bg-error/10 p-1.5 rounded-full transition-colors cursor-pointer"
+                          title="Delete Transaction"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">delete</span>
+                        </button>
                       </div>
                     </motion.div>
                   ))

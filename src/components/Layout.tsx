@@ -131,7 +131,7 @@ export function Layout({ children, title, headerActions, noPadding }: LayoutProp
       const initialMessages = [
         {
           id: String(Date.now()),
-          sender: 'ai' as const,
+          sender: 'Akira' as const,
           category: 'Akira',
           text: 'Hello! I am Akira, your AI Assistant. I can help you with your business ledgers, or answer any general questions you might have!'
         }

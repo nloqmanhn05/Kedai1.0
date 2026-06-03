@@ -4,6 +4,7 @@ import { AreaChart, Area, XAxis, Tooltip as RechartsTooltip, ResponsiveContainer
 import { motion } from 'framer-motion';
 import { Card } from '../components/Card';
 import { Grid } from '../components/Grid';
+import { useSalesSummaryFirestore } from '../hooks/useSalesSummaryFirestore';
 
 const chartData = [
   { name: '24/3', Value: 15, transaction: 10 },
@@ -17,6 +18,7 @@ const chartData = [
 
 export default function Dashboard() {
   const [liveTransactions, setLiveTransactions] = useState<any[]>([]);
+  const { summary, loading: summaryLoading, updateSummary } = useSalesSummaryFirestore();
 
   const loadLogs = () => {
     const saved = localStorage.getItem('wise_sales_log');
@@ -44,9 +46,12 @@ export default function Dashboard() {
       .reduce((sum, tx) => sum + tx.amount, 0);
   }, [liveTransactions, todayStr]);
 
-  // We combine a baseline (42,500) with live sales for the demo
-  const totalCashDisplay = 42500 + earnedToday;
+  const totalCashDisplay = summary.cashCollected + summary.eWalletCollected + earnedToday;
   const totalOrders = 142 + liveTransactions.length;
+
+  const totalCollected = summary.cashCollected + summary.eWalletCollected || 1;
+  const cashPercentage = (summary.cashCollected / totalCollected) * 100;
+  const eWalletPercentage = (summary.eWalletCollected / totalCollected) * 100;
 
   return (
     <Layout title="Financial Overview">
@@ -66,7 +71,7 @@ export default function Dashboard() {
               </div>
               <div className="flex items-center justify-between mb-6 gap-4">
                 <h2 className="text-3xl md:text-3xl lg:text-4xl font-bold text-on-surface tracking-tight font-mono">
-                  <span className="text-2xl mr-1 font-sans">RM</span>{totalCashDisplay.toLocaleString()}
+                  <span className="text-2xl mr-1 font-sans">RM</span>{totalCashDisplay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </h2>
                 <div className="bg-primary-fixed text-on-primary-fixed py-1 rounded-full font-semibold flex items-center gap-1 font-mono px-2.5 text-xs">
                   <span className="material-symbols-outlined text-[14px]">arrow_upward</span>
@@ -110,21 +115,21 @@ export default function Dashboard() {
                   {/* Background Tracks */}
                   <circle cx="50" cy="50" fill="transparent" r="40" stroke="#f1edef" strokeWidth="8"></circle>
                   <circle cx="50" cy="50" fill="transparent" r="30" stroke="#f1edef" strokeWidth="8"></circle>
-                  {/* Cash Ring (Outer) - 75% */}
+                  {/* Cash Ring (Outer) */}
                   <motion.circle
                     cx="50" cy="50" fill="transparent" r="40" stroke="url(#gradientCash)"
-                    strokeDasharray="188.5"
-                    initial={{ strokeDashoffset: 188.5 }}
-                    animate={{ strokeDashoffset: 47.1 }}
+                    strokeDasharray="251.3"
+                    initial={{ strokeDashoffset: 251.3 }}
+                    animate={{ strokeDashoffset: 251.3 - (251.3 * cashPercentage / 100) }}
                     transition={{ duration: 1.5, ease: "easeOut" }}
                     strokeLinecap="round" strokeWidth="8"
                   ></motion.circle>
-                  {/* E-wallet Ring (Inner) - 25% */}
+                  {/* E-wallet Ring (Inner) */}
                   <motion.circle
                     cx="50" cy="50" fill="transparent" r="30" stroke="url(#gradientEWallet)"
                     strokeDasharray="188.5"
                     initial={{ strokeDashoffset: 188.5 }}
-                    animate={{ strokeDashoffset: 141.4 }}
+                    animate={{ strokeDashoffset: 188.5 - (188.5 * eWalletPercentage / 100) }}
                     transition={{ duration: 1.5, ease: "easeOut", delay: 0.2 }}
                     strokeLinecap="round" strokeWidth="8"
                   ></motion.circle>
@@ -138,17 +143,17 @@ export default function Dashboard() {
               
               <div className="flex gap-6 w-full justify-center">
                 <div className="text-center">
-                  <p className="text-sm font-bold text-on-surface font-mono">RM 31,875</p>
+                  <p className="text-sm font-bold text-on-surface font-mono">RM {summary.cashCollected.toLocaleString()}</p>
                   <div className="flex items-center justify-center gap-1.5 mt-1">
                     <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#0ea5e9' }}></span>
-                    <span className="text-xs text-on-surface-variant">Cash (75%)</span>
+                    <span className="text-xs text-on-surface-variant">Cash ({cashPercentage.toFixed(0)}%)</span>
                   </div>
                 </div>
                 <div className="text-center">
-                  <p className="text-sm font-bold text-on-surface font-mono">RM 10,625</p>
+                  <p className="text-sm font-bold text-on-surface font-mono">RM {summary.eWalletCollected.toLocaleString()}</p>
                   <div className="flex items-center justify-center gap-1.5 mt-1">
                     <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#6366f1' }}></span>
-                    <span className="text-xs text-on-surface-variant">E-wallet (25%)</span>
+                    <span className="text-xs text-on-surface-variant">E-wallet ({eWalletPercentage.toFixed(0)}%)</span>
                   </div>
                 </div>
               </div>
@@ -231,25 +236,97 @@ export default function Dashboard() {
                 Sales Summary
               </h3>
               <div className="space-y-3">
-                <div className="flex justify-between items-center py-2 border-b border-outline-variant/30 last:border-0">
+                <div className="flex justify-between items-center py-2 border-b border-outline-variant/30">
                   <span className="text-sm text-on-surface-variant">Starting Cash</span>
-                  <span className="text-sm font-bold text-on-surface font-mono">RM 5,420.00</span>
+                  <div className="flex items-center font-mono font-bold text-sm text-on-surface">
+                    <span className="mr-1">RM</span>
+                    <input 
+                      type="number" 
+                      step="0.01" 
+                      key={`startingCash-${summary.startingCash}`}
+                      defaultValue={summary.startingCash}
+                      onBlur={(e) => updateSummary({ startingCash: parseFloat(e.target.value) || 0 })}
+                      className="bg-transparent text-right font-mono text-sm font-bold text-on-surface focus:outline-none border-b border-dashed border-outline-variant/45 focus:border-primary w-24"
+                    />
+                  </div>
                 </div>
-                <div className="flex justify-between items-center py-2 border-b border-outline-variant/30 last:border-0">
+                <div className="flex justify-between items-center py-2 border-b border-outline-variant/30">
                   <span className="text-sm text-on-surface-variant">Expected Cash</span>
-                  <span className="text-sm font-bold text-on-surface font-mono">RM 8,200.00</span>
+                  <div className="flex items-center font-mono font-bold text-sm text-on-surface">
+                    <span className="mr-1">RM</span>
+                    <input 
+                      type="number" 
+                      step="0.01" 
+                      key={`expectedCash-${summary.expectedCash}`}
+                      defaultValue={summary.expectedCash}
+                      onBlur={(e) => updateSummary({ expectedCash: parseFloat(e.target.value) || 0 })}
+                      className="bg-transparent text-right font-mono text-sm font-bold text-on-surface focus:outline-none border-b border-dashed border-outline-variant/45 focus:border-primary w-24"
+                    />
+                  </div>
                 </div>
-                <div className="flex justify-between items-center py-2 border-b border-outline-variant/30 last:border-0">
-                  <span className="text-sm text-on-surface-variant">Gross Sales</span>
-                  <span className="text-sm font-bold text-primary font-mono">RM {(12450 + earnedToday).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                <div className="flex justify-between items-center py-2 border-b border-outline-variant/30">
+                  <span className="text-sm text-on-surface-variant">Gross Sales (Base)</span>
+                  <div className="flex items-center font-mono font-bold text-sm text-on-surface">
+                    <span className="mr-1">RM</span>
+                    <input 
+                      type="number" 
+                      step="0.01" 
+                      key={`grossSalesBaseline-${summary.grossSalesBaseline}`}
+                      defaultValue={summary.grossSalesBaseline}
+                      onBlur={(e) => updateSummary({ grossSalesBaseline: parseFloat(e.target.value) || 0 })}
+                      className="bg-transparent text-right font-mono text-sm font-bold text-on-surface focus:outline-none border-b border-dashed border-outline-variant/45 focus:border-primary w-24"
+                    />
+                  </div>
                 </div>
-                <div className="flex justify-between items-center py-2 border-b border-outline-variant/30 last:border-0">
+                <div className="flex justify-between items-center py-2 border-b border-outline-variant/30">
+                  <span className="text-sm text-on-surface-variant">Total Gross Sales</span>
+                  <span className="text-sm font-bold text-primary font-mono">RM {(summary.grossSalesBaseline + earnedToday).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-outline-variant/30">
                   <span className="text-sm text-on-surface-variant">Refund</span>
-                  <span className="text-sm font-bold text-error font-mono">RM 150.00</span>
+                  <div className="flex items-center font-mono font-bold text-sm text-error">
+                    <span className="mr-1">RM</span>
+                    <input 
+                      type="number" 
+                      step="0.01" 
+                      key={`refund-${summary.refund}`}
+                      defaultValue={summary.refund}
+                      onBlur={(e) => updateSummary({ refund: parseFloat(e.target.value) || 0 })}
+                      className="bg-transparent text-right font-mono text-sm font-bold text-error focus:outline-none border-b border-dashed border-outline-variant/45 focus:border-primary w-24"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-outline-variant/30">
+                  <span className="text-sm text-on-surface-variant">Cash Collected</span>
+                  <div className="flex items-center font-mono font-bold text-sm text-on-surface">
+                    <span className="mr-1">RM</span>
+                    <input 
+                      type="number" 
+                      step="0.01" 
+                      key={`cashCollected-${summary.cashCollected}`}
+                      defaultValue={summary.cashCollected}
+                      onBlur={(e) => updateSummary({ cashCollected: parseFloat(e.target.value) || 0 })}
+                      className="bg-transparent text-right font-mono text-sm font-bold text-on-surface focus:outline-none border-b border-dashed border-outline-variant/45 focus:border-primary w-24"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-outline-variant/30">
+                  <span className="text-sm text-on-surface-variant">E-wallet Collected</span>
+                  <div className="flex items-center font-mono font-bold text-sm text-on-surface">
+                    <span className="mr-1">RM</span>
+                    <input 
+                      type="number" 
+                      step="0.01" 
+                      key={`eWalletCollected-${summary.eWalletCollected}`}
+                      defaultValue={summary.eWalletCollected}
+                      onBlur={(e) => updateSummary({ eWalletCollected: parseFloat(e.target.value) || 0 })}
+                      className="bg-transparent text-right font-mono text-sm font-bold text-on-surface focus:outline-none border-b border-dashed border-outline-variant/45 focus:border-primary w-24"
+                    />
+                  </div>
                 </div>
                 <div className="flex justify-between items-center pt-2">
-                  <span className="text-sm text-on-surface-variant">Discount</span>
-                  <span className="text-sm font-bold text-on-surface font-mono">RM 200.00</span>
+                  <span className="text-sm text-on-surface-variant font-bold">Total Cash In Hand</span>
+                  <span className="text-sm font-bold text-primary font-mono">RM {totalCashDisplay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
               </div>
             </Card>

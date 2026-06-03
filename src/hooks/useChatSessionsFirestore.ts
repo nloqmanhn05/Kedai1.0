@@ -17,7 +17,7 @@ export interface Action {
 
 export interface Message {
   id: string;
-  sender: 'user' | 'ai';
+  sender: 'user' | 'Akira';
   text: string;
   category?: string;
   title?: string;
@@ -64,7 +64,7 @@ export function useChatSessionsFirestore() {
           messages: data.messages || []
         } as ChatSession;
       }).sort((a, b) => b.updatedAt - a.updatedAt);
-      
+
       setChatSessions(sessions);
       setLoading(false);
     }, (err) => {

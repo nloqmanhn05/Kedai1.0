@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
-import { collection, onSnapshot, query, addDoc, serverTimestamp, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query, addDoc, serverTimestamp, orderBy, doc, deleteDoc } from 'firebase/firestore';
 import { Expense } from '../pages/types';
 
 export function useExpensesFirestore() {
@@ -50,5 +50,15 @@ export function useExpensesFirestore() {
     }
   };
 
-  return { expenses, loading, error, addExpense };
+  const deleteExpense = async (id: string | number) => {
+    try {
+      const expenseRef = doc(db, 'expenses', String(id));
+      await deleteDoc(expenseRef);
+    } catch (err) {
+      console.error('Error deleting expense from Firestore:', err);
+      throw err;
+    }
+  };
+
+  return { expenses, loading, error, addExpense, deleteExpense };
 }

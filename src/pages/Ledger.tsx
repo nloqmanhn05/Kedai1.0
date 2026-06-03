@@ -3,9 +3,11 @@ import { Layout } from '../components/Layout';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useExpensesFirestore } from '../hooks/useExpensesFirestore';
+import { useTransactionsFirestore } from '../hooks/useTransactionsFirestore';
 import * as XLSX from 'xlsx';
 
 interface LedgerTransaction {
+  id?: string | number;
   staff: string[];
   date: string;
   description: string;
@@ -80,29 +82,62 @@ export default function Ledger() {
     return [];
   }, []);
 
-  const [ledgerTransactions, setLedgerTransactions] = useState<LedgerTransaction[]>(() => {
-    const saved = localStorage.getItem('wise_ledger_registry');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {}
-    }
-    return transactions;
-  });
+  const { transactions: firestoreTransactions, deleteTransaction, addTransaction } = useTransactionsFirestore();
+  const { expenses: firestoreExpenses, deleteExpense, addExpense } = useExpensesFirestore();
 
-  // Listen for live updates from POS or other sources
-  useEffect(() => {
-    const handleUpdate = () => {
-      const saved = localStorage.getItem('wise_ledger_registry');
-      if (saved) {
-        try {
-          setLedgerTransactions(JSON.parse(saved));
-        } catch (e) {}
+  const ledgerTransactions = useMemo(() => {
+    const incomes: LedgerTransaction[] = firestoreTransactions.map(tx => ({
+      id: tx.id ? String(tx.id) : undefined,
+      staff: [tx.staffName],
+      date: tx.date,
+      description: tx.orderId || 'Sale Order',
+      subtext: `Time: ${tx.time}`,
+      category: 'Sales',
+      amount: `+${tx.amount.toFixed(2)}`,
+      expenses: '',
+      balance: '—',
+      type: 'income'
+    }));
+
+    const expensesList: LedgerTransaction[] = firestoreExpenses.map(exp => ({
+      id: exp.id,
+      staff: exp.staff,
+      date: exp.date,
+      description: exp.description,
+      subtext: exp.subtext,
+      category: exp.category,
+      amount: '',
+      expenses: `-${exp.amount.toFixed(2)}`,
+      balance: '—',
+      type: 'expense'
+    }));
+
+    const merged = [...incomes, ...expensesList].sort((a, b) => {
+      const timeA = firestoreTransactions.find(t => String(t.id) === a.id)?.timestamp || firestoreExpenses.find(e => e.id === a.id)?.timestamp || 0;
+      const timeB = firestoreTransactions.find(t => String(t.id) === b.id)?.timestamp || firestoreExpenses.find(e => e.id === b.id)?.timestamp || 0;
+      return timeB - timeA;
+    });
+
+    if (merged.length === 0) {
+      return transactions;
+    }
+    return merged;
+  }, [firestoreTransactions, firestoreExpenses]);
+
+  const handleDeleteLedgerItem = async (tx: LedgerTransaction) => {
+    if (!tx.id) return;
+    if (window.confirm(`Are you sure you want to delete this ${tx.type} entry?`)) {
+      try {
+        if (tx.type === 'income') {
+          await deleteTransaction(tx.id);
+        } else {
+          await deleteExpense(tx.id);
+        }
+      } catch (err) {
+        alert("Failed to delete entry. Please try again.");
       }
-    };
-    window.addEventListener('ledgerUpdated', handleUpdate);
-    return () => window.removeEventListener('ledgerUpdated', handleUpdate);
-  }, []);
+    }
+  };
 
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
@@ -158,32 +193,30 @@ export default function Ledger() {
   const [incomeCategory, setIncomeCategory] = useState('Sales');
   const [incomeStaff, setIncomeStaff] = useState('');
 
-  const handleAddIncome = (e: React.FormEvent) => {
+  const handleAddIncome = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!incomeName || !incomeAmount || !incomeStaff) {
       alert('Please fill in the required fields.');
       return;
     }
     
-    const amountFormatted = parseFloat(incomeAmount).toLocaleString('en-US', { minimumFractionDigits: 2 });
     const dateObj = new Date(incomeDate);
     const dateFormatted = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
-    const newTransaction: LedgerTransaction = {
-      staff: [incomeStaff],
-      date: dateFormatted,
-      description: incomeName,
-      subtext: incomeDescription || 'Manual Entry',
-      category: incomeCategory,
-      amount: `+${incomeAmount}`,
-      expenses: '',
-      balance: 'Updating...',
-      type: 'income'
-    };
-
-    setLedgerTransactions([newTransaction, ...ledgerTransactions]);
-    // Update storage
-    localStorage.setItem('wise_ledger_registry', JSON.stringify([newTransaction, ...ledgerTransactions]));
+    try {
+      await addTransaction({
+        date: dateFormatted,
+        time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+        orderId: incomeName,
+        staffName: incomeStaff,
+        staffInitials: incomeStaff.substring(0, 2).toUpperCase(),
+        staffColor: 'bg-primary-container text-on-primary-container',
+        amount: parseFloat(incomeAmount)
+      });
+    } catch (err) {
+      console.error('Failed to save income to Firestore:', err);
+      alert('Failed to save income to database. Please try again.');
+    }
     
     setIncomeName('');
     setIncomeDescription('');
@@ -193,8 +226,6 @@ export default function Ledger() {
     setShowIncomeModal(false);
   };
 
-  const { addExpense } = useExpensesFirestore();
-
   const handleAddExpense = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!expenseName || !expenseAmount || !expenseStaff) {
@@ -202,28 +233,9 @@ export default function Ledger() {
       return;
     }
     
-    // Create new transaction object
-    const amountFormatted = parseFloat(expenseAmount).toLocaleString('en-US', { minimumFractionDigits: 2 });
     const dateObj = new Date(expenseDate);
     const dateFormatted = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
-    const newTransaction: LedgerTransaction = {
-      staff: [expenseStaff],
-      date: dateFormatted,
-      description: expenseName,
-      subtext: expenseDescription || 'Manual Entry',
-      category: expenseCategory,
-      amount: '',
-      expenses: `-${expenseAmount}`,
-      balance: 'Updating...', // Real-time balance calculation would follow ledger logic
-      type: 'expense'
-    };
-
-    // Update local state to show in table
-    setLedgerTransactions([newTransaction, ...ledgerTransactions]);
-    // Update storage
-    localStorage.setItem('wise_ledger_registry', JSON.stringify([newTransaction, ...ledgerTransactions]));
-    
     // Save to Firestore
     try {
       await addExpense({
@@ -237,7 +249,7 @@ export default function Ledger() {
       });
     } catch (err) {
       console.error('Failed to save expense to Firestore:', err);
-      alert('Expense saved locally but failed to save to database. Please try again.');
+      alert('Failed to save expense to database. Please try again.');
     }
     
     // Reset and close
@@ -371,7 +383,7 @@ export default function Ledger() {
           </div>
           
           {/* Table Column Headers */}
-          <div className="grid grid-cols-7 gap-2 px-8 py-3 text-[10px] font-bold text-outline uppercase tracking-widest border-b border-outline-variant/30 bg-surface-container-low/10 font-mono">
+          <div className="grid grid-cols-8 gap-2 px-8 py-3 text-[10px] font-bold text-outline uppercase tracking-widest border-b border-outline-variant/30 bg-surface-container-low/10 font-mono">
             <div className="col-span-1">Staff</div>
             <div className="col-span-1">Date</div>
             <div className="col-span-1">Description</div>
@@ -379,6 +391,7 @@ export default function Ledger() {
             <div className="col-span-1 text-right whitespace-nowrap">Income</div>
             <div className="col-span-1 text-right whitespace-nowrap">Expenses</div>
             <div className="col-span-1 text-right whitespace-nowrap">Balance</div>
+            <div className="col-span-1 text-right whitespace-nowrap">Action</div>
           </div>
 
           {/* Transaction Rows */}
@@ -386,7 +399,7 @@ export default function Ledger() {
             {paginatedTransactions.map((tx, idx) => (
               <div 
                 key={idx}
-                className="grid grid-cols-7 gap-2 items-center rounded-2xl px-4 py-4 transition hover:bg-surface-container-low/50 cursor-default bg-transparent"
+                className="grid grid-cols-8 gap-2 items-center rounded-2xl px-4 py-4 transition hover:bg-surface-container-low/50 cursor-default bg-transparent"
               >
                 <div className="col-span-1 text-[10px] text-on-surface-variant font-bold uppercase space-y-1 font-mono">
                   {tx.staff.map((s: string) => <div key={s} className="flex items-center gap-1"><span className="w-1 h-1 rounded-full bg-primary/40"></span>{s}</div>)}
@@ -412,6 +425,17 @@ export default function Ledger() {
                 </div>
                 <div className={`col-span-1 text-right font-bold text-sm font-mono whitespace-nowrap ${tx.type === 'income' ? 'text-primary' : 'text-on-surface'}`}>
                   RM {tx.calculatedBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                </div>
+                <div className="col-span-1 text-right">
+                  {tx.id && (
+                    <button
+                      onClick={() => handleDeleteLedgerItem(tx)}
+                      className="text-error hover:bg-error/10 p-1.5 rounded-full transition-colors cursor-pointer"
+                      title="Delete Entry"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">delete</span>
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
