@@ -15,18 +15,14 @@ This diagram represents the class structure and relationships of the Kedai busin
 
 ## Class Diagram - Mermaid Code
 
-```mermaid 
 classDiagram
-    %% Inheritance
-    User <|-- Admin
-    User <|-- Staff
-
     class User {
-        +string userId
-        +string email
-        +string fullName
-        +string role
-        +DateTime createdAt
+        -userId: string
+        -email: string
+        -password: string
+        -fullName: string
+        -role: string
+        -createdAt: DateTime
         +signUp()
         +signIn()
         +logout()
@@ -34,79 +30,206 @@ classDiagram
     }
 
     class Admin {
-        +string[] permissions
+        -adminId: string
+        -permissions: string[]
         +manageStaff()
         +configurePayroll()
         +viewAllReports()
+        +exportData()
     }
 
     class Staff {
-        +string department
-        +number salary
+        -staffId: string
+        -department: string
+        -salary: number
         +recordSale()
         +updateInventory()
+        +viewOwnTransactions()
+    }
+
+    class Dashboard {
+        -dashboardId: string
+        -totalEarnings: number
+        -dailyEarnings: number
+        -cashBalance: number
+        -eWalletBalance: number
+        +calculateTotalEarnings()
+        +getDailyEarnings()
+        +getCashVsEWallet()
+        +getTransactionSummary()
     }
 
     class Ledger {
-        +string ledgerId
+        -ledgerId: string
+        -entries: Entry[]
+        -totalIncome: number
+        -totalExpenses: number
         +recordIncome()
         +recordExpense()
+        +viewHistory()
+        +exportToXLSX()
     }
 
     class Entry {
-        +string entryId
-        +number amount
-        +string type
+        -entryId: string
+        -type: string
+        -amount: number
+        -description: string
+        -date: DateTime
+        +create()
+        +update()
+        +delete()
     }
 
     class Stock {
-        +string stockId
+        -stockId: string
+        -items: StockItem[]
+        -lastUpdated: DateTime
         +addItem()
         +updateLevel()
+        +viewInventory()
+        +setLowStockAlert()
     }
 
     class StockItem {
-        +string itemId
-        +string name
-        +number quantity
+        -itemId: string
+        -name: string
+        -quantity: number
+        -category: string
+        -price: number
+        -lowStockThreshold: number
+        +updateQuantity()
+        +getCategoryItems()
+        +checkLowStock()
     }
 
     class Transaction {
-        +string transactionId
-        +number amount
+        -transactionId: string
+        -amount: number
+        -paymentMethod: string
+        -timestamp: DateTime
+        -staff: Staff
+        -items: TransactionItem[]
         +recordSale()
+        +calculateTotal()
+        +getTransactionHistory()
+    }
+
+    class TransactionItem {
+        -itemId: string
+        -quantity: number
+        -unitPrice: number
+        +calculateLineTotal()
     }
 
     class ChatSession {
-        +string sessionId
+        -sessionId: string
+        -messages: Message[]
+        -createdAt: DateTime
+        -updatedAt: DateTime
         +startSession()
+        +addMessage()
         +getInsights()
+        +saveHistory()
     }
 
-    %% Associations
-    User "1" --> "*" Notification : receives
-    Ledger *-- "*" Entry : contains
-    Stock *-- "*" StockItem : contains
-    Transaction o-- "*" TransactionItem : contains
-    Staff "1" -- "*" Transaction : performs
-    ChatSession *-- "*" Message : contains
-    ChatSession --> AIService : uses
-    
-    %% Service Layer
+    class Message {
+        -messageId: string
+        -sender: string
+        -content: string
+        -timestamp: DateTime
+        +create()
+        +getResponse()
+    }
+
+    class PayrollRecord {
+        -payrollId: string
+        -staff: Staff
+        -workHours: number
+        -hourlyRate: number
+        -totalSalary: number
+        +calculatePayroll()
+        +recordWorkHours()
+        +generatePayslip()
+    }
+
+    class Notification {
+        -notificationId: string
+        -type: string
+        -message: string
+        -recipient: User
+        -isRead: boolean
+        +sendNotification()
+        +markAsRead()
+    }
+
     class FirebaseService {
+        -authService: AuthService
+        -firestoreService: FirestoreService
         +authenticate()
         +readData()
         +writeData()
-    }
-    
-    class AIService {
-        +sendPrompt()
-        +getInsights()
+        +deleteData()
     }
 
-    Ledger ..> FirebaseService : persists
-    Stock ..> FirebaseService : persists
+    class AuthService {
+        -apiKey: string
+        +signUp()
+        +signIn()
+        +verifyToken()
+        +logout()
+    }
+
+    class FirestoreService {
+        -database: Firestore
+        +createDocument()
+        +readDocument()
+        +updateDocument()
+        +deleteDocument()
+        +queryCollection()
+    }
+
+    class AIService {
+        -geminiAPI: string
+        +sendPrompt()
+        +getInsights()
+        +generateRecommendations()
+    }
+
+    %% Relationships
+    User <|-- Admin : inheritance
+    User <|-- Staff : inheritance
+    User "1" --> "*" Notification : receives
+    
+    Dashboard "1" --> "1" User : viewedBy
+    Dashboard "1" --> "*" Transaction : displays
+    
+    Ledger "1" --> "*" Entry : contains
+    Ledger "1" --> "1" User : ownedBy
+    
+    Stock "1" --> "*" StockItem : contains
+    Stock "1" --> "1" Admin : managedBy
+    
+    Transaction "1" --> "*" TransactionItem : contains
+    Transaction "1" --> "1" Staff : createdBy
+    
+    ChatSession "1" --> "*" Message : contains
+    ChatSession "1" --> "1" User : belongsTo
+    
+    PayrollRecord "1" --> "1" Staff : recordFor
+    PayrollRecord "1" --> "1" Admin : createdBy
+    
+    FirebaseService "1" --> "1" AuthService : uses
+    FirebaseService "1" --> "1" FirestoreService : uses
+    
+    Ledger "1" --> "1" FirestoreService : persistsTo
+    Stock "1" --> "1" FirestoreService : persistsTo
+    Transaction "1" --> "1" FirestoreService : persistsTo
+    ChatSession "1" --> "1" FirestoreService : persistsTo
+    
+    ChatSession "1" --> "1" AIService : communicatesWith
 ```
+
     ## Key Features
 
 ### Class Hierarchy:
