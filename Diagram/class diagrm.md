@@ -15,7 +15,7 @@ This diagram represents the class structure and relationships of the Kedai busin
 
 ## Class Diagram - Mermaid Code
 
-```classDiagram
+```mermaid 
     class User {
         -userId: string
         -email: string
