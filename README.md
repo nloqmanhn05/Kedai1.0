@@ -73,6 +73,17 @@ This compiles static assets into the `dist/` directory, which can be deployed to
 
 ---
 
+## How to Use diagram mermaid code in draw.io:
+
+1. Go to [draw.io](https://draw.io)
+2. Create a new diagram
+3. In the Mermaid code block above, copy all the code
+4. Click Arrange
+5. At the bottom of the dialog, click "Insert" dropdown → select Mermaid
+Paste the corrected Mermaid code directly
+6. Paste it into draw.io
+7. The diagram will render automatically
+
 ## 📱 Features Spotlight
 * **Unified Sales Ledger**: Consolidate Cash, DuitNow, and digital payments into a single reconcilable dashboard.
 * **Smart Attendance Tracking**: Prevent duplicate logs with date-based attendance tracking (increments only once per day).
