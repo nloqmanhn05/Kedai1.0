@@ -1,5 +1,6 @@
 ```mermaid
-   
+sequenceDiagram
+    autonumber
     participant User
     participant UI as Web/Mobile UI
     participant AuthCtx as AuthContext Provider
@@ -29,5 +30,4 @@
     Gemini-->>UI: Return AI insights
     UI->>Notification: Request receipt or order alert
     Notification-->>UI: Delivery confirmation
-
 ```
