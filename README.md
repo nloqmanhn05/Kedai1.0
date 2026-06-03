@@ -72,6 +72,9 @@ npm run build
 This compiles static assets into the `dist/` directory, which can be deployed to static hosting providers like Firebase Hosting, Vercel, or Netlify.
 
 ---
+---
+
+## 📊 Production Diagram 
 
 ## How to Use diagram mermaid code in draw.io:
 
@@ -83,6 +86,8 @@ This compiles static assets into the `dist/` directory, which can be deployed to
 Paste the corrected Mermaid code directly
 6. Paste it into draw.io
 7. The diagram will render automatically
+
+---
 
 ## 📱 Features Spotlight
 * **Unified Sales Ledger**: Consolidate Cash, DuitNow, and digital payments into a single reconcilable dashboard.
