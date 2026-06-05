@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Layout } from '../components/Layout';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStaffFirestore } from '../hooks/useStaffFirestore';
+import { useTransactionsFirestore } from '../hooks/useTransactionsFirestore';
 
 interface StaffProfile {
   id: string;
@@ -59,10 +60,9 @@ const tabs: TabOption[] = [
   { id: 'notifications', label: 'Notifications' },
   { id: 'my-account', label: 'My Account' },
   { id: 'danger-zone', label: 'Danger Zone', isDanger: true },
-];
-
-function StaffSettingsView() {
+];function StaffSettingsView() {
   const { staff: firestoreStaff, updateStaff } = useStaffFirestore();
+  const { transactions: firestoreTransactions } = useTransactionsFirestore();
   const [selectedStaffId, setSelectedStaffId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showToast, setShowToast] = useState(false);
@@ -80,46 +80,7 @@ function StaffSettingsView() {
     return () => clearInterval(timer);
   }, []);
 
-  const [staffData, setStaffData] = useState<StaffProfile[]>(() => {
-    const savedAccounts = localStorage.getItem('wise_staff_accounts');
-    const savedRegistry = localStorage.getItem('wise_staff_registry');
-    
-    let accounts = [];
-    try { accounts = savedAccounts ? JSON.parse(savedAccounts) : []; } catch (e) {}
-
-    let registry = [];
-    try { registry = savedRegistry ? JSON.parse(savedRegistry) : []; } catch (e) {}
-
-    if (accounts.length > 0) {
-      return accounts.map((acc: any) => {
-        const perf = registry.find((r: any) => r.id === acc.id);
-        return {
-          id: acc.id,
-          verificationId: acc.verificationId || '2250000',
-          name: acc.name,
-          role: acc.position || 'Staff',
-          status: acc.status === 'Active' ? 'Active' : 'On Leave',
-          statusColor: acc.status === 'Active' ? 'bg-primary-container text-on-primary-container' : 'bg-surface-variant text-on-surface-variant',
-          totalHours: perf?.totalHours || 0,
-          otHours: perf?.otHours || 0,
-          attendanceDays: perf?.attendanceDays || 0,
-          totalDays: perf?.totalDays || 22,
-          completionRate: perf?.completionRate || '0%',
-          transactionsCount: perf?.transactionsCount || 0,
-          totalEarned: perf?.totalEarned || 0,
-          cashEarned: perf?.cashEarned || 0,
-          ewalletEarned: perf?.ewalletEarned || 0,
-          clockInTime: perf?.clockInTime || 'N/A',
-          clockOutTime: perf?.clockOutTime || 'N/A',
-          workHours: perf?.workHours || 0,
-          overtimeApproved: perf?.overtimeApproved || false,
-          shiftStatus: perf?.shiftStatus || 'Ended',
-          clockInTimestamp: perf?.clockInTimestamp || undefined
-        };
-      });
-    }
-    return [];
-  });
+  const [staffData, setStaffData] = useState<StaffProfile[]>([]);
 
   // Handle default selection when list changes
   useEffect(() => {
@@ -128,7 +89,7 @@ function StaffSettingsView() {
     }
   }, [staffData, selectedStaffId]);
 
-  // Sync staffData with firestoreStaff real-time listener from Firestore
+  // Sync staffData with firestoreStaff and firestoreTransactions real-time listeners from Firestore
   useEffect(() => {
     if (firestoreStaff.length > 0) {
       const savedRegistry = localStorage.getItem('wise_staff_registry');
@@ -140,6 +101,18 @@ function StaffSettingsView() {
         const attendanceDays = item.attendanceDays ?? 0;
         const hoursWorked = item.hoursWorked ?? 0;
         const totalPay = item.totalPay ?? 0;
+
+        // Calculate transaction metrics dynamically from Firestore transactions
+        const staffTransactions = firestoreTransactions.filter(
+          tx => tx.staffName && tx.staffName.trim().toLowerCase() === item.name.trim().toLowerCase()
+        );
+        const txCount = staffTransactions.length;
+        const cashEarned = staffTransactions
+          .filter(tx => !tx.paymentMethod || tx.paymentMethod === 'cash')
+          .reduce((sum, tx) => sum + tx.amount, 0);
+        const ewalletEarned = staffTransactions
+          .filter(tx => tx.paymentMethod === 'ewallet')
+          .reduce((sum, tx) => sum + tx.amount, 0);
 
         return {
           id: String(item.id),
@@ -153,10 +126,10 @@ function StaffSettingsView() {
           attendanceDays: attendanceDays,
           totalDays: perf?.totalDays || 22,
           completionRate: `${22 > 0 ? Math.round((attendanceDays / 22) * 100) : 0}%`,
-          transactionsCount: perf?.transactionsCount || 0,
+          transactionsCount: txCount,
           totalEarned: totalPay,
-          cashEarned: perf?.cashEarned || 0,
-          ewalletEarned: perf?.ewalletEarned || 0,
+          cashEarned: cashEarned,
+          ewalletEarned: ewalletEarned,
           clockInTime: item.clockInTime || 'N/A',
           clockOutTime: item.clockOutTime || 'N/A',
           workHours: item.workHours || 0,
@@ -168,8 +141,7 @@ function StaffSettingsView() {
       });
       setStaffData(mappedData);
     }
-  }, [firestoreStaff]);
-
+  }, [firestoreStaff, firestoreTransactions]);
   // Persist staff changes to localStorage so Menu.tsx can read them
   useEffect(() => {
     localStorage.setItem('wise_staff_registry', JSON.stringify(staffData));

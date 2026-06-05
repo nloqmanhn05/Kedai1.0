@@ -1,42 +1,47 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
-import { AreaChart, Area, XAxis, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
+import { ComposedChart, Area, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import { motion } from 'framer-motion';
 import { Card } from '../components/Card';
 import { Grid } from '../components/Grid';
 import { useSalesSummaryFirestore } from '../hooks/useSalesSummaryFirestore';
+import { useTransactionsFirestore } from '../hooks/useTransactionsFirestore';
+import { useStaffFirestore } from '../hooks/useStaffFirestore';
+import { useAuth } from '../contexts/AuthContext';
 
-const chartData = [
-  { name: '24/3', Value: 15, transaction: 10 },
-  { name: '25/3', Value: 30, transaction: 15 },
-  { name: '26/3', Value: 20, transaction: 8 },
-  { name: '27/3', Value: 35, transaction: 20 },
-  { name: '28/3', Value: 65, transaction: 30 },
-  { name: '29/3', Value: 75, transaction: 45 },
-  { name: '30/3', Value: 70, transaction: 25 },
-];
+
 
 export default function Dashboard() {
-  const [liveTransactions, setLiveTransactions] = useState<any[]>([]);
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { staff: allStaff } = useStaffFirestore();
+  const { transactions: liveTransactions, loading: transactionsLoading } = useTransactionsFirestore();
   const { summary, loading: summaryLoading, updateSummary } = useSalesSummaryFirestore();
 
-  const loadLogs = () => {
-    const saved = localStorage.getItem('wise_sales_log');
-    if (saved) {
-      try {
-        setLiveTransactions(JSON.parse(saved));
-      } catch (e) {
-        console.error("Failed to parse sales logs from localStorage", e);
+  const userRole = localStorage.getItem('userRole') || 'admin';
+
+  // Find the current staff member's name by matching login email
+  const currentStaffName = useMemo(() => {
+    if (userRole !== 'staff' || !user?.email) return null;
+    const match = allStaff.find(
+      s => (s as any).email?.toLowerCase() === user.email!.toLowerCase()
+    );
+    return match?.name || null;
+  }, [allStaff, user, userRole]);
+
+  const handleViewFullReport = () => {
+    if (userRole === 'staff') {
+      if (currentStaffName) {
+        navigate(`/transactions?staff=${encodeURIComponent(currentStaffName)}`);
+      } else {
+        navigate('/transactions');
       }
+    } else {
+      navigate('/ledger');
     }
   };
 
-  // Load and listen for live sales updates
-  useEffect(() => {
-    loadLogs();
-    window.addEventListener('salesLogUpdated', loadLogs);
-    return () => window.removeEventListener('salesLogUpdated', loadLogs);
-  }, []);
 
   const todayStr = useMemo(() => new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }), []);
   
@@ -46,8 +51,26 @@ export default function Dashboard() {
       .reduce((sum, tx) => sum + tx.amount, 0);
   }, [liveTransactions, todayStr]);
 
+  // Build last 7 days of chart data from real Firestore transactions
+  const chartData = useMemo(() => {
+    const days: { name: string; fullDate: string }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const label = `${d.getDate()}/${d.getMonth() + 1}`;
+      const fullDate = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      days.push({ name: label, fullDate });
+    }
+    return days.map(({ name, fullDate }) => {
+      const dayTxs = liveTransactions.filter(tx => tx.date === fullDate);
+      const Value = parseFloat(dayTxs.reduce((sum, tx) => sum + tx.amount, 0).toFixed(2));
+      const transaction = dayTxs.length;
+      return { name, Value, transaction };
+    });
+  }, [liveTransactions]);
+
   const totalCashDisplay = summary.cashCollected + summary.eWalletCollected + earnedToday;
-  const totalOrders = 142 + liveTransactions.length;
+  const totalOrders = liveTransactions.length;
 
   const totalCollected = summary.cashCollected + summary.eWalletCollected || 1;
   const cashPercentage = (summary.cashCollected / totalCollected) * 100;
@@ -168,18 +191,19 @@ export default function Dashboard() {
               <div className="flex flex-col md:flex-row gap-6">
                 <div className="w-full md:w-[30%] flex flex-col justify-between">
                   <div>
-                    <h3 className="text-base md:text-base lg:text-lg font-semibold text-on-surface">March 2026</h3>
+                    <h3 className="text-base md:text-base lg:text-lg font-semibold text-on-surface">{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h3>
                     <div className="mt-6 mb-6">
                       <span className="text-xs font-bold text-outline tracking-wider uppercase block mb-1">
                         Total Transactions
                       </span>
                       <span className="text-2xl md:text-2xl lg:text-3xl font-bold text-primary font-mono">{totalOrders}</span>
+                      <span className="text-[10px] text-on-surface-variant font-medium mt-1">Last 7 days</span>
                     </div>
                   </div>
                   <div className="flex flex-col gap-2 mt-auto pt-4 md:pt-0">
                     <div className="flex items-center gap-2">
                       <span className="w-3 h-3 rounded-full bg-[#0ea5e9] shrink-0"></span>
-                      <span className="text-xs text-on-surface-variant font-medium">Value (RM x 100)</span>
+                      <span className="text-xs text-on-surface-variant font-medium">Sales (RM)</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="w-3 h-3 rounded-full bg-[#6366f1] shrink-0"></span>
@@ -189,29 +213,47 @@ export default function Dashboard() {
                 </div>
                 <div className="w-full md:w-[70%] flex flex-col justify-between">
                   <div className="flex justify-end mb-4">
-                    <a className="text-sm font-medium text-primary hover:text-primary-container transition-colors" href="#">
+                    <button
+                      onClick={handleViewFullReport}
+                      className="text-sm font-medium text-primary hover:text-primary-container transition-colors"
+                    >
                       View Full Report
-                    </a>
+                    </button>
                   </div>
-                  <div className="h-44 w-full relative">
+                  <div className="h-56 w-full relative">
                     <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={chartData} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
+                      <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                         <defs>
                           <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#0ea5e9" stopOpacity={0.25} />
-                            <stop offset="100%" stopColor="#0ea5e9" stopOpacity={0} />
-                          </linearGradient>
-                          <linearGradient id="colorTransaction" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#6366f1" stopOpacity={0.15} />
-                            <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
+                            <stop offset="0%" stopColor="#0ea5e9" stopOpacity={0.3} />
+                            <stop offset="100%" stopColor="#0ea5e9" stopOpacity={0.02} />
                           </linearGradient>
                         </defs>
                         <XAxis
                           dataKey="name"
                           axisLine={false}
                           tickLine={false}
-                          tick={{ fill: '#79747E', fontSize: 10, family: 'JetBrains Mono' }}
+                          tick={{ fill: '#79747E', fontSize: 10, fontFamily: 'JetBrains Mono' }}
                           dy={10}
+                        />
+                        <YAxis
+                          yAxisId="left"
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fill: '#0ea5e9', fontSize: 9, fontFamily: 'JetBrains Mono' }}
+                          tickFormatter={(v: number) => `RM${v}`}
+                          domain={[0, 'auto']}
+                          width={50}
+                        />
+                        <YAxis
+                          yAxisId="right"
+                          orientation="right"
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fill: '#6366f1', fontSize: 9, fontFamily: 'JetBrains Mono' }}
+                          domain={[0, 'auto']}
+                          allowDecimals={false}
+                          width={30}
                         />
                         <RechartsTooltip
                           contentStyle={{
@@ -221,9 +263,9 @@ export default function Dashboard() {
                             fontFamily: 'JetBrains Mono'
                           }}
                         />
-                        <Area type="monotone" dataKey="transaction" stroke="#6366f1" strokeWidth={2.5} fillOpacity={1} fill="url(#colorTransaction)" />
-                        <Area type="monotone" dataKey="Value" stroke="#0ea5e9" strokeWidth={3} fillOpacity={1} fill="url(#colorValue)" />
-                      </AreaChart>
+                        <Bar yAxisId="right" dataKey="transaction" fill="#6366f1" opacity={0.25} radius={[4, 4, 0, 0]} barSize={18} />
+                        <Area yAxisId="left" type="monotone" dataKey="Value" stroke="#0ea5e9" strokeWidth={3} fillOpacity={1} fill="url(#colorValue)" dot={{ r: 3, fill: '#0ea5e9', strokeWidth: 0 }} />
+                      </ComposedChart>
                     </ResponsiveContainer>
                   </div>
                 </div>

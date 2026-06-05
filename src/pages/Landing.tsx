@@ -826,7 +826,7 @@ export default function Landing() {
             <a href="#" className="text-sm text-on-surface-variant hover:text-primary transition-colors">Contact Support</a>
           </div>
           <div className="text-[11px] text-on-surface-variant text-center md:text-right max-w-md">
-            © 2026 FinTech. All rights reserved to team buildprojectnexus. This is project is designed specially for project subject Software Engineering and Design
+            © 2026 FinTech. All rights reserved to team 404 brain not here. This is project is designed specially for project subject Software Engineering and Design
           </div>
         </div>
       </footer>

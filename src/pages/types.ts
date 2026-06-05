@@ -34,6 +34,7 @@ export interface SalesTransaction {
   staffInitials: string;
   staffColor: string;
   amount: number;
+  paymentMethod?: string;
   timestamp?: number; // Added to help with sorting
 }
 

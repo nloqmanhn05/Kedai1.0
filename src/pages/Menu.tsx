@@ -242,6 +242,7 @@ export default function Menu() {
         staffInitials: initials,
         staffColor: staffColor,
         amount: total,
+        paymentMethod: paymentMethod,
       });
     } catch (e) {
       console.error("Failed to add transaction to Firestore", e);

@@ -110,9 +110,13 @@ const initialTransactions: SalesTransaction[] = [
   }
 ];
 
+import { useSearchParams } from 'react-router-dom';
+
 export default function TransactionHistory() {
+  const [searchParams] = useSearchParams();
+  const staffParam = searchParams.get('staff');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedStaff, setSelectedStaff] = useState('All Staff');
+  const [selectedStaff, setSelectedStaff] = useState(staffParam || 'All Staff');
   const [selectedDate, setSelectedDate] = useState('All Dates');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;

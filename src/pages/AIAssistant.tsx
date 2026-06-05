@@ -18,7 +18,7 @@ export default function AIAssistant() {
   const [inputValue, setInputValue] = useState('');
   const [isThinking, setIsThinking] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
-  
+
   // Get real app data
   const { user } = useAuth();
   const { transactions = [] } = useTransactionsFirestore();
@@ -53,7 +53,7 @@ export default function AIAssistant() {
     const initialMessages: Message[] = [
       {
         id: String(Date.now()),
-        sender: 'ai',
+        sender: 'Akira',
         category: 'Akira',
         text: 'Hello! I am Akira, your AI Assistant. I can help you with your business ledgers, or answer any general questions you might have!'
       }
@@ -84,7 +84,7 @@ export default function AIAssistant() {
 
     const isDefaultTitle = currentSessionSnapshot?.title === 'New Discussion';
     const newTitle = isDefaultTitle ? (text.length > 25 ? text.substring(0, 25) + '...' : text) : undefined;
-    
+
     const updatedMessagesWithUser = [...previousMessages, userMsg];
 
     if (!textToSend) {
@@ -154,7 +154,7 @@ YOUR ROLE:
 
       const aiResponse: Message = {
         id: String(Date.now() + 1),
-        sender: 'ai',
+        sender: 'Akira',
         category: 'Akira Assistant',
         title: 'Akira Response',
         text: replyText
@@ -191,7 +191,7 @@ YOUR ROLE:
 
       const aiResponse: Message = {
         id: String(Date.now() + 1),
-        sender: 'ai',
+        sender: 'Akira',
         category: 'Akira (Demo Mode)',
         title: 'System Fallback Response',
         text: fallbackText,
@@ -233,12 +233,12 @@ YOUR ROLE:
                   transition={{ duration: 0.3 }}
                   className={`flex gap-4 items-start ${message.sender === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
                 >
-                  <div className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center shadow-sm select-none ${message.sender === 'ai' ? 'bg-primary-container text-on-primary-container' : 'bg-[#1c1b1d] text-[#bbaaff]'
+                  <div className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center shadow-sm select-none ${message.sender === 'Akira' ? 'bg-primary-container text-on-primary-container' : 'bg-[#1c1b1d] text-[#bbaaff]'
                     }`}>
                     <AkiraIcon className="w-5 h-5" />
                   </div>
 
-                  {message.sender === 'ai' ? (
+                  {message.sender === 'Akira' ? (
                     <div className="max-w-3xl bg-surface-container-lowest p-4 md:p-5 rounded-2xl border border-outline-variant/40 shadow-sm hover:shadow-md transition-shadow">
                       {message.category && (
                         <div className="mb-2">
@@ -271,8 +271,8 @@ YOUR ROLE:
                               key={idx}
                               onClick={() => handleSendMessage(act.label)}
                               className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-label-lg text-xs font-bold transition-all active:scale-95 duration-100 cursor-pointer ${act.variant === 'outline'
-                                  ? 'border border-outline-variant text-on-surface-variant hover:bg-surface-container'
-                                  : 'bg-secondary-container text-on-secondary-container hover:bg-secondary-container/80 shadow-sm'
+                                ? 'border border-outline-variant text-on-surface-variant hover:bg-surface-container'
+                                : 'bg-secondary-container text-on-secondary-container hover:bg-secondary-container/80 shadow-sm'
                                 }`}
                             >
                               <span className="material-symbols-outlined text-[16px]">{act.icon}</span>

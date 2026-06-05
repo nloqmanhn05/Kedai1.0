@@ -24,6 +24,7 @@ export function useTransactionsFirestore() {
           staffInitials: data.staffInitials,
           staffColor: data.staffColor,
           amount: data.amount,
+          paymentMethod: data.paymentMethod,
           timestamp: data.timestamp?.toMillis() || Date.now(),
         } as SalesTransaction;
       });

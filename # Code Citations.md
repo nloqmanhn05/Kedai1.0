@@ -1,12 +1,10 @@
-# Kedai - Use Case Diagram
+# Code Citations
 
-## Overview
-This diagram represents all the actors (Admin, Staff, AI Assistant, and Firebase Backend) and their interactions with the various features of the Kedai business management system.
+## License: unknown
+https://github.com/usc20199350218/msmp_public/blob/d8f2bad87aef5e1a52dff5780d777e9d2bf93689/work/useCase4.puml
 
-### Authentication Requirements
-**Both Admin and Staff must authenticate via Sign In (UC2) before accessing the app's features.** Only unauthenticated users can access the Landing page and Sign Up page. After authentication, users are directed to their respective dashboards based on their role.
-
-## Use Case Diagram - Mermaid Code
+```
+Based on my analysis of your app, here's a comprehensive Mermaid use case diagram for your **Kedai** business management system. This code can be pasted directly into draw.io:
 
 ```mermaid
 usecase diagram
@@ -148,40 +146,6 @@ usecase diagram
     Firebase --> UC27
     Firebase --> UC30
 
-    %% Use case relationships (extensions/inclusions)
-    UC1 ..|> UC4 : <<include>>
-    UC2 ..|> UC4 : <<include>>
-    UC9 ..|> UC11 : <<extend>>
-    UC10 ..|> UC11 : <<extend>>
-    UC24 ..|> UC6 : <<extend>>
-    UC24 ..|> UC8 : <<extend>>
-    UC14 ..|> UC16 : <<extend>>
-    UC28 ..|> UC29 : <<extend>>
-    UC21 ..|> UC20 : <<include>>
+    %% Use case relationships (extensions/
 ```
 
-## Key Features
-
-### Actors:
-- **Admin/Owner**: Full access to all features
-- **Staff**: Limited access (operations only, no financial configuration)
-- **Akira AI Assistant**: Provides business insights and chat support
-- **Firebase Backend**: Handles data persistence and authentication
-
-### Use Cases by Module:
-1. **Authentication & Account** (4 use cases) - User login, registration, and profile management
-2. **Dashboard** (4 use cases) - Financial overview and transaction monitoring
-3. **Ledger Management** (4 use cases) - Income/expense tracking and export
-4. **Stock & Inventory** (5 use cases) - Stock management and alerts
-5. **Staff Management** (6 use cases) - Personnel and payroll management
-6. **Transaction History** (3 use cases) - Sales transaction tracking
-7. **AI Assistant** (4 use cases) - Chat sessions and business insights
-8. **Settings & Configuration** (4 use cases) - App customization
-
-## How to Use in draw.io:
-
-1. Go to [draw.io](https://draw.io)
-2. Create a new diagram
-3. In the Mermaid code block above, copy all the code
-4. Paste it into draw.io
-5. The diagram will render automatically
