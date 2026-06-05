@@ -250,7 +250,7 @@ export default function Dashboard() {
                           orientation="right"
                           axisLine={false}
                           tickLine={false}
-                          tick={{ fill: '#6366f1', fontSize: 9, fontFamily: 'JetBrains Mono' }}
+                          tick={{ fill: '#a855f7', fontSize: 9, fontFamily: 'JetBrains Mono' }}
                           domain={[0, 'auto']}
                           allowDecimals={false}
                           width={30}
@@ -263,7 +263,7 @@ export default function Dashboard() {
                             fontFamily: 'JetBrains Mono'
                           }}
                         />
-                        <Bar yAxisId="right" dataKey="transaction" fill="#6366f1" opacity={0.25} radius={[4, 4, 0, 0]} barSize={18} />
+                        <Bar yAxisId="right" dataKey="transaction" fill="#a855f7" opacity={0.35} radius={[4, 4, 0, 0]} barSize={18} />
                         <Area yAxisId="left" type="monotone" dataKey="Value" stroke="#0ea5e9" strokeWidth={3} fillOpacity={1} fill="url(#colorValue)" dot={{ r: 3, fill: '#0ea5e9', strokeWidth: 0 }} />
                       </ComposedChart>
                     </ResponsiveContainer>
