@@ -47,23 +47,30 @@ export function useChatSessionsFirestore() {
       return;
     }
 
-    const q = query(
-      collection(db, 'chatSessions'),
-      where('userId', '==', user.uid)
-    );
+    const q = collection(db, 'chatSessions');
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const sessions = snapshot.docs.map(doc => {
         const data = doc.data();
         return {
           id: doc.id,
-          userId: data.userId,
+          userId: data.userId || '',
           title: data.title,
           createdAt: data.createdAt,
           updatedAt: data.updatedAt?.toMillis() || Date.now(),
           messages: data.messages || []
         } as ChatSession;
-      }).sort((a, b) => b.updatedAt - a.updatedAt);
+      })
+      .filter(s => s.userId === user.uid || !s.userId)
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+
+      // Automatically migrate orphaned sessions to the current user
+      sessions.forEach(s => {
+        if (!s.userId) {
+          updateDoc(doc(db, 'chatSessions', s.id), { userId: user.uid })
+            .catch(err => console.error(`Failed to migrate session ${s.id}:`, err));
+        }
+      });
 
       setChatSessions(sessions);
       setLoading(false);
