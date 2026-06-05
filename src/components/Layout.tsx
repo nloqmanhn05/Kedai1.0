@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useChatSessionsFirestore, ChatSession } from '../hooks/useChatSessionsFirestore';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -382,41 +383,49 @@ export function Layout({ children, title, headerActions, noPadding }: LayoutProp
                         </div>
                       )}
 
-                      {!isSidebarFolded && openMenus.assistant && (
-                        <div className="ml-4 pl-3.5 border-l border-outline-variant/60 flex flex-col space-y-1 mt-1 mb-1.5 text-left animate-fadeIn">
-                          {chatSessions.map((session: ChatSession) => {
-                            const isActive = location.pathname === '/assistant' && new URLSearchParams(location.search).get('chatId') === session.id;
-                            return (
-                              <div
-                                key={session.id}
-                                className="group flex items-center justify-between w-full pr-2"
-                              >
-                                <Link
-                                  to={`/assistant?chatId=${session.id}`}
-                                  className={`text-[12.5px] block py-[3px] transition-colors font-medium truncate flex-1 ${isActive
-                                    ? 'text-primary font-bold'
-                                    : 'text-on-surface-variant hover:text-primary'
-                                    }`}
-                                  title={session.title}
+                      <AnimatePresence initial={false}>
+                        {!isSidebarFolded && openMenus.assistant && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.25, ease: 'easeInOut' }}
+                            className="ml-4 pl-3.5 border-l border-outline-variant/60 flex flex-col space-y-1 mt-1 mb-1.5 text-left overflow-hidden"
+                          >
+                            {chatSessions.map((session: ChatSession) => {
+                              const isActive = location.pathname === '/assistant' && new URLSearchParams(location.search).get('chatId') === session.id;
+                              return (
+                                <div
+                                  key={session.id}
+                                  className="group flex items-center justify-between w-full pr-2"
                                 >
-                                  {session.title}
-                                </Link>
-                                <button
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    handleDeleteSession(session.id);
-                                  }}
-                                  className="opacity-0 group-hover:opacity-100 text-on-surface-variant/60 hover:text-error transition-all duration-200 cursor-pointer p-0.5 rounded hover:bg-surface-variant/40 shrink-0"
-                                  title="Delete chat"
-                                >
-                                  <span className="material-symbols-outlined text-[15px]">delete</span>
-                                </button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
+                                  <Link
+                                    to={`/assistant?chatId=${session.id}`}
+                                    className={`text-[12.5px] block py-[3px] transition-colors font-medium truncate flex-1 ${isActive
+                                      ? 'text-primary font-bold'
+                                      : 'text-on-surface-variant hover:text-primary'
+                                      }`}
+                                    title={session.title}
+                                  >
+                                    {session.title}
+                                  </Link>
+                                  <button
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      handleDeleteSession(session.id);
+                                    }}
+                                    className="opacity-0 group-hover:opacity-100 text-on-surface-variant/60 hover:text-error transition-all duration-200 cursor-pointer p-0.5 rounded hover:bg-surface-variant/40 shrink-0"
+                                    title="Delete chat"
+                                  >
+                                    <span className="material-symbols-outlined text-[15px]">delete</span>
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
 
                     {/* Settings */}
