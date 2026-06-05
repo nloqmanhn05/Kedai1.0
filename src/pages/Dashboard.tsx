@@ -225,8 +225,8 @@ export default function Dashboard() {
                       <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                         <defs>
                           <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#0ea5e9" stopOpacity={0.3} />
-                            <stop offset="100%" stopColor="#0ea5e9" stopOpacity={0.02} />
+                            <stop offset="0%" stopColor="#a855f7" stopOpacity={0.3} />
+                            <stop offset="100%" stopColor="#a855f7" stopOpacity={0.02} />
                           </linearGradient>
                         </defs>
                         <XAxis
@@ -240,7 +240,7 @@ export default function Dashboard() {
                           yAxisId="left"
                           axisLine={false}
                           tickLine={false}
-                          tick={{ fill: '#0ea5e9', fontSize: 9, fontFamily: 'JetBrains Mono' }}
+                          tick={{ fill: '#a855f7', fontSize: 9, fontFamily: 'JetBrains Mono' }}
                           tickFormatter={(v: number) => `RM${v}`}
                           domain={[0, 'auto']}
                           width={50}
@@ -250,7 +250,7 @@ export default function Dashboard() {
                           orientation="right"
                           axisLine={false}
                           tickLine={false}
-                          tick={{ fill: '#a855f7', fontSize: 9, fontFamily: 'JetBrains Mono' }}
+                          tick={{ fill: '#0ea5e9', fontSize: 9, fontFamily: 'JetBrains Mono' }}
                           domain={[0, 'auto']}
                           allowDecimals={false}
                           width={30}
@@ -263,8 +263,8 @@ export default function Dashboard() {
                             fontFamily: 'JetBrains Mono'
                           }}
                         />
-                        <Bar yAxisId="right" dataKey="transaction" fill="#a855f7" opacity={0.35} radius={[4, 4, 0, 0]} barSize={18} />
-                        <Area yAxisId="left" type="monotone" dataKey="Value" stroke="#0ea5e9" strokeWidth={3} fillOpacity={1} fill="url(#colorValue)" dot={{ r: 3, fill: '#0ea5e9', strokeWidth: 0 }} />
+                        <Bar yAxisId="right" dataKey="transaction" fill="#0ea5e9" opacity={0.35} radius={[4, 4, 0, 0]} barSize={18} />
+                        <Area yAxisId="left" type="monotone" dataKey="Value" stroke="#a855f7" strokeWidth={3} fillOpacity={1} fill="url(#colorValue)" dot={{ r: 3, fill: '#a855f7', strokeWidth: 0 }} />
                       </ComposedChart>
                     </ResponsiveContainer>
                   </div>
