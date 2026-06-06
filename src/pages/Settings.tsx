@@ -675,13 +675,7 @@ export default function Settings() {
         return JSON.parse(saved) as StaffAccount[];
       } catch (e) {}
     }
-    return [
-      { id: 'EMP-042', verificationId: '2250101', name: 'Siti Aminah', position: 'Cashier', email: 'siti.a@company.com', ic: '940512-14-5566', phone: '+60123456789', joinDate: '2024-02-10', shift: 'Morning', rate: '6.00', lastLogin: 'Today, 08:15 AM', status: 'Active' },
-      { id: 'EMP-018', verificationId: '2250102', name: 'Hafiz Rahman', position: 'Supervisor', email: 'hafiz.r@company.com', ic: '880101-10-1234', phone: '+60172233445', joinDate: '2023-11-15', shift: 'Afternoon', rate: '8.00', lastLogin: 'Yesterday, 17:30 PM', status: 'Active' },
-      { id: 'EMP-055', verificationId: '2250103', name: 'Ahmad Fauzi', position: 'Cashier', email: 'ahmad.f@company.com', ic: '921120-08-9988', phone: '+60198877665', joinDate: '2024-01-05', shift: 'Morning', rate: '6.00', lastLogin: 'Oct 24, 09:00 AM', status: 'Active' },
-      { id: 'EMP-082', verificationId: '2250104', name: 'Nurul Baiti', position: 'Kitchen Staff', email: 'nurul.b@company.com', ic: '960824-14-3321', phone: '+60112233445', joinDate: '2023-09-12', shift: 'Morning', rate: '6.50', lastLogin: 'Sep 12, 14:20 PM', status: 'Inactive' },
-      { id: 'EMP-091', verificationId: '2250105', name: 'Zulaikha Aziz', position: 'Cleaner', email: 'zulaikha.a@company.com', ic: '900101-14-5555', phone: '+60124455667', joinDate: '2024-03-01', shift: 'Morning', rate: '5.50', lastLogin: 'Today, 06:45 AM', status: 'Active' }
-    ];
+    return [];
   });
 
   // Sync firestoreStaff into staffList when it changes
@@ -758,6 +752,20 @@ export default function Settings() {
   const [currPassword, setCurrPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+
+  const handleDeleteStaff = async (id: string) => {
+    if (confirm('Are you sure you want to permanently delete this staff member? This action cannot be undone.')) {
+      setStaffList(prev => prev.filter(s => s.id !== id));
+      try {
+        await deleteStaff(id);
+        setToastMessage('Staff member deleted successfully.');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+      } catch (err) {
+        console.error('Error deleting staff from Firestore:', err);
+      }
+    }
+  };
 
   const handleSaveChanges = () => {
     setShowToast(true);
@@ -1332,7 +1340,7 @@ export default function Settings() {
                                   </span>
                                 </td>
                                 <td className="py-4 px-6 text-right">
-                                  <div className="flex items-center justify-end gap-2 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <div className="flex items-center justify-end gap-2">
                                     <button
                                       onClick={() => handleOpenEditModal(staff)}
                                       className="p-2 text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-full transition-colors cursor-pointer"
@@ -1375,6 +1383,13 @@ export default function Settings() {
                                         <span className="material-symbols-outlined text-[20px]">more_vert</span>
                                       </button>
                                     )}
+                                    <button
+                                      onClick={() => handleDeleteStaff(staff.id)}
+                                      className="p-2 text-on-surface-variant hover:text-error hover:bg-error-container/20 rounded-full transition-colors cursor-pointer"
+                                      title="Delete Account"
+                                    >
+                                      <span className="material-symbols-outlined text-[20px]">delete</span>
+                                    </button>
                                   </div>
                                 </td>
                               </tr>

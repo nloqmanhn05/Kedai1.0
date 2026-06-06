@@ -107,7 +107,7 @@ const AnimatedCounter = ({ value, prefix = '', suffix = '' }: { value: number; p
 
 export default function Landing() {
   return (
-    <div className="bg-background text-on-background antialiased pt-16 font-sans">
+    <div className="bg-background text-on-background antialiased pt-16 font-sans overflow-x-hidden">
       {/* TopNavBar */}
       <nav className="fixed top-0 w-full z-50 bg-surface/80 dark:bg-surface-dim/80 backdrop-blur-md border-b border-outline-variant/30 flat no shadows">
         <div className="flex justify-between items-center h-16 px-4 md:px-6 max-w-7xl mx-auto">
@@ -126,7 +126,7 @@ export default function Landing() {
       </nav>
 
       {/* Hero Section */}
-      <section className="px-4 md:px-6 py-20 max-w-7xl mx-auto overflow-hidden">
+      <section className="px-4 md:px-6 py-20 max-w-7xl mx-auto">
         <div className="grid md:grid-cols-2 gap-12 items-center">
           <motion.div 
             initial="hidden"

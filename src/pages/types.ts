@@ -30,6 +30,7 @@ export interface SalesTransaction {
   date: string;
   time: string;
   orderId: string;
+  staffId: string;
   staffName: string;
   staffInitials: string;
   staffColor: string;
@@ -70,5 +71,7 @@ export interface StaffMember {
   clockInTimestamp?: number;
   lastAttendanceDate?: string;
   status?: string;
+  shift?: string;
+  totalEarned?: number;
 }
 

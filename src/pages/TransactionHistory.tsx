@@ -2,114 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Layout } from '../components/Layout';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTransactionsFirestore } from '../hooks/useTransactionsFirestore';
-import { SalesTransaction } from './types';
-
-// The SalesTransaction interface is now imported from types.ts, but we'll use the hook's return type directly.
-// (You could also import SalesTransaction if needed here)
-
-const initialTransactions: SalesTransaction[] = [
-  {
-    id: 1,
-    date: 'Oct 24, 2023',
-    time: '08:30 AM',
-    orderId: '#HT-1024',
-    staffName: 'Siti Aminah',
-    staffInitials: 'SA',
-    staffColor: 'bg-tertiary-container text-on-tertiary-container',
-    amount: 12.50
-  },
-  {
-    id: 2,
-    date: 'Oct 24, 2023',
-    time: '08:45 AM',
-    orderId: '#HT-1025',
-    staffName: 'Ah Lian',
-    staffInitials: 'AL',
-    staffColor: 'bg-secondary-container text-on-secondary-container',
-    amount: 8.00
-  },
-  {
-    id: 3,
-    date: 'Oct 24, 2023',
-    time: '09:15 AM',
-    orderId: '#HT-1026',
-    staffName: 'Siti Aminah',
-    staffInitials: 'SA',
-    staffColor: 'bg-tertiary-container text-on-tertiary-container',
-    amount: 24.50
-  },
-  {
-    id: 4,
-    date: 'Oct 24, 2023',
-    time: '09:30 AM',
-    orderId: '#HT-1027',
-    staffName: 'Ah Lian',
-    staffInitials: 'AL',
-    staffColor: 'bg-secondary-container text-on-secondary-container',
-    amount: 6.00
-  },
-  {
-    id: 5,
-    date: 'Oct 24, 2023',
-    time: '10:05 AM',
-    orderId: '#HT-1028',
-    staffName: 'Siti Aminah',
-    staffInitials: 'SA',
-    staffColor: 'bg-tertiary-container text-on-tertiary-container',
-    amount: 18.00
-  },
-  {
-    id: 6,
-    date: 'Oct 24, 2023',
-    time: '11:15 AM',
-    orderId: '#HT-1029',
-    staffName: 'Uncle Lim',
-    staffInitials: 'UL',
-    staffColor: 'bg-primary-container text-on-primary-container',
-    amount: 15.00
-  },
-  {
-    id: 7,
-    date: 'Oct 24, 2023',
-    time: '12:30 PM',
-    orderId: '#HT-1030',
-    staffName: 'Ah Lian',
-    staffInitials: 'AL',
-    staffColor: 'bg-secondary-container text-on-secondary-container',
-    amount: 32.50
-  },
-  {
-    id: 8,
-    date: 'Oct 24, 2023',
-    time: '01:15 PM',
-    orderId: '#HT-1031',
-    staffName: 'Siti Aminah',
-    staffInitials: 'SA',
-    staffColor: 'bg-tertiary-container text-on-tertiary-container',
-    amount: 10.50
-  },
-  {
-    id: 9,
-    date: 'Oct 24, 2023',
-    time: '02:00 PM',
-    orderId: '#HT-1032',
-    staffName: 'Uncle Lim',
-    staffInitials: 'UL',
-    staffColor: 'bg-primary-container text-on-primary-container',
-    amount: 22.00
-  },
-  {
-    id: 10,
-    date: 'Oct 24, 2023',
-    time: '03:45 PM',
-    orderId: '#HT-1033',
-    staffName: 'Ah Lian',
-    staffInitials: 'AL',
-    staffColor: 'bg-secondary-container text-on-secondary-container',
-    amount: 14.50
-  }
-];
-
+import { useStaffFirestore } from '../hooks/useStaffFirestore';
 import { useSearchParams } from 'react-router-dom';
 
 export default function TransactionHistory() {
@@ -123,6 +16,7 @@ export default function TransactionHistory() {
 
   // Get live data from Firestore instead of localStorage
   const { transactions: allTransactions, loading, deleteTransaction } = useTransactionsFirestore();
+  const { staff: firestoreStaff } = useStaffFirestore();
 
   const handleDeleteTransaction = async (id: string | number, orderId: string) => {
     if (window.confirm(`Are you sure you want to delete transaction ${orderId}?`)) {
@@ -134,11 +28,22 @@ export default function TransactionHistory() {
     }
   };
 
-  // Extract unique staff and dates for dynamic filters
-  const availableStaff = useMemo(() => {
-    const staffSet = new Set(allTransactions.map(tx => tx.staffName));
-    return ['All Staff', ...Array.from(staffSet)].sort();
-  }, [allTransactions]);
+  // Build staff list for dropdown filter
+  const staffOptions = useMemo(() => {
+    // Extract unique names from transactions for any historical entries not in the active staff registry
+    const registeredIds = new Set(firestoreStaff.map(s => String(s.id)));
+    const historicalStaff = allTransactions
+      .filter(tx => tx.staffName && !registeredIds.has(tx.staffId))
+      .map(tx => ({ id: tx.staffId || tx.staffName, name: tx.staffName }));
+
+    // De-duplicate historical entries by ID/Name
+    const uniqueHistorical = Array.from(new Map(historicalStaff.map(item => [item.id, item])).values());
+
+    return [
+      ...firestoreStaff.map(s => ({ id: String(s.id), name: s.name })),
+      ...uniqueHistorical
+    ];
+  }, [firestoreStaff, allTransactions]);
 
   const availableDates = useMemo(() => {
     const dateSet = new Set(allTransactions.map(tx => tx.date));
@@ -149,7 +54,7 @@ export default function TransactionHistory() {
   const filteredTransactions = useMemo(() => {
     return allTransactions.filter((tx) => {
       // Staff filter
-      if (selectedStaff !== 'All Staff' && tx.staffName !== selectedStaff) {
+      if (selectedStaff !== 'All Staff' && tx.staffId !== selectedStaff && tx.staffName !== selectedStaff) {
         return false;
       }
       
@@ -281,7 +186,8 @@ export default function TransactionHistory() {
                 className="bg-surface-container border border-outline-variant/30 text-xs font-bold rounded-3xl py-1 !h-9 pr-10 pl-4 focus:ring-1 focus:ring-primary cursor-pointer text-on-surface appearance-none"
                 style={{ backgroundImage: `url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%2379747E' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E")`, backgroundPosition: 'right 0.75rem center', backgroundSize: '1.2em 1.2em', backgroundRepeat: 'no-repeat' }}
               >
-                {availableStaff.map(staff => <option key={staff} value={staff}>{staff}</option>)}
+                <option value="All Staff">All Staff</option>
+                {staffOptions.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
               </select>
             </div>
 

@@ -20,53 +20,6 @@ interface LedgerTransaction {
   calculatedBalance?: number;
 }
 
-const transactions: LedgerTransaction[] = [
-  {
-    staff: ['Ahmad', 'Siti'],
-    date: 'Oct 24, 2023',
-    description: 'Client Retainer – Alpha Corp',
-    subtext: 'Invoice #INV-2023-089',
-    category: 'Sales',
-    amount: '+12500.00',
-    expenses: '',
-    balance: '0.00',
-    type: 'income'
-  },
-  {
-    staff: ['Razak', 'Mei'],
-    date: 'Oct 22, 2023',
-    description: 'Software Subscriptions',
-    subtext: 'Adobe CC, Figma, AWS',
-    category: 'Subscriptions',
-    amount: '',
-    expenses: '-85.00',
-    balance: '0.00',
-    type: 'expense'
-  },
-  {
-    staff: ['Ahmad', 'Razak'],
-    date: 'Oct 18, 2023',
-    description: 'Project Milestone – Beta LLC',
-    subtext: 'Design Phase Complete',
-    category: 'Revenue',
-    amount: '+8000.00',
-    expenses: '',
-    balance: '0.00',
-    type: 'income'
-  },
-  {
-    staff: ['Siti', 'Mei'],
-    date: 'Oct 15, 2023',
-    description: 'Office Equipment',
-    subtext: 'Ergonomic Chair',
-    category: 'Asset',
-    amount: '',
-    expenses: '-50.00',
-    balance: '0.00',
-    type: 'expense'
-  }
-];
-
 export default function Ledger() {
   const userRole = localStorage.getItem('userRole') || 'admin';
   
@@ -86,31 +39,41 @@ export default function Ledger() {
   const { expenses: firestoreExpenses, deleteExpense, addExpense } = useExpensesFirestore();
 
   const ledgerTransactions = useMemo(() => {
-    const incomes: LedgerTransaction[] = firestoreTransactions.map(tx => ({
-      id: tx.id ? String(tx.id) : undefined,
-      staff: [tx.staffName],
-      date: tx.date,
-      description: tx.orderId || 'Sale Order',
-      subtext: `Time: ${tx.time}`,
-      category: 'Sales',
-      amount: `+${tx.amount.toFixed(2)}`,
-      expenses: '',
-      balance: '—',
-      type: 'income'
-    }));
+    const incomes: LedgerTransaction[] = firestoreTransactions.map(tx => {
+      const member = staffRegistry.find((r: any) => String(r.id) === String(tx.staffId));
+      const resolvedName = member ? member.name : (tx.staffName || 'Unknown');
+      return {
+        id: tx.id ? String(tx.id) : undefined,
+        staff: [resolvedName],
+        date: tx.date,
+        description: tx.orderId || 'Sale Order',
+        subtext: `Time: ${tx.time}`,
+        category: 'Sales',
+        amount: `+${tx.amount.toFixed(2)}`,
+        expenses: '',
+        balance: '—',
+        type: 'income'
+      };
+    });
 
-    const expensesList: LedgerTransaction[] = firestoreExpenses.map(exp => ({
-      id: exp.id,
-      staff: exp.staff,
-      date: exp.date,
-      description: exp.description,
-      subtext: exp.subtext,
-      category: exp.category,
-      amount: '',
-      expenses: `-${exp.amount.toFixed(2)}`,
-      balance: '—',
-      type: 'expense'
-    }));
+    const expensesList: LedgerTransaction[] = firestoreExpenses.map(exp => {
+      const resolvedNames = exp.staff.map(sId => {
+        const member = staffRegistry.find((r: any) => String(r.id) === String(sId));
+        return member ? member.name : sId;
+      });
+      return {
+        id: exp.id,
+        staff: resolvedNames,
+        date: exp.date,
+        description: exp.description,
+        subtext: exp.subtext,
+        category: exp.category,
+        amount: '',
+        expenses: `-${exp.amount.toFixed(2)}`,
+        balance: '—',
+        type: 'expense'
+      };
+    });
 
     const merged = [...incomes, ...expensesList].sort((a, b) => {
       const timeA = firestoreTransactions.find(t => String(t.id) === a.id)?.timestamp || firestoreExpenses.find(e => e.id === a.id)?.timestamp || 0;
@@ -119,7 +82,7 @@ export default function Ledger() {
     });
 
     if (merged.length === 0) {
-      return transactions;
+      return [];
     }
     return merged;
   }, [firestoreTransactions, firestoreExpenses]);
@@ -208,6 +171,7 @@ export default function Ledger() {
         date: dateFormatted,
         time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
         orderId: incomeName,
+        staffId: incomeStaff || 'Unknown',
         staffName: incomeStaff,
         staffInitials: incomeStaff.substring(0, 2).toUpperCase(),
         staffColor: 'bg-primary-container text-on-primary-container',
@@ -665,7 +629,7 @@ export default function Ledger() {
                   >
                     <option value="" disabled>Select Staff Member</option>
                     {staffRegistry.map((staff: any) => (
-                      <option key={staff.id} value={staff.name}>{staff.name}</option>
+                      <option key={staff.id} value={staff.id}>{staff.name}</option>
                     ))}
                   </select>
                 </div>

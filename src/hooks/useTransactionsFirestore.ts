@@ -20,6 +20,7 @@ export function useTransactionsFirestore() {
           date: data.date,
           time: data.time,
           orderId: data.orderId,
+          staffId: data.staffId || '',
           staffName: data.staffName,
           staffInitials: data.staffInitials,
           staffColor: data.staffColor,

@@ -23,12 +23,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
+    let unsubscribe: (() => void) | undefined;
+    try {
+      unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        setUser(currentUser);
+        setLoading(false);
+      });
+    } catch (e) {
+      console.warn('Firebase Auth listener failed:', e);
       setLoading(false);
-    });
+    }
 
-    return unsubscribe;
+    // Fallback: if auth never resolves (e.g. no credentials), stop loading after 3s
+    const timeout = setTimeout(() => setLoading(false), 3000);
+
+    return () => {
+      unsubscribe?.();
+      clearTimeout(timeout);
+    };
   }, []);
 
   function signUp(email: string, password: string) {

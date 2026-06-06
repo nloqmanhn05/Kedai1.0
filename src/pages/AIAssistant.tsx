@@ -8,6 +8,9 @@ import ReactMarkdown from 'react-markdown';
 import { useAuth } from '../contexts/AuthContext';
 import { useTransactionsFirestore } from '../hooks/useTransactionsFirestore';
 import { useStockFirestore } from '../hooks/useStockFirestore';
+import { useExpensesFirestore } from '../hooks/useExpensesFirestore';
+import { useSalesSummaryFirestore } from '../hooks/useSalesSummaryFirestore';
+import { useStaffFirestore } from '../hooks/useStaffFirestore';
 
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
@@ -23,6 +26,9 @@ export default function AIAssistant() {
   const { user } = useAuth();
   const { transactions = [] } = useTransactionsFirestore();
   const { stockList = [] } = useStockFirestore();
+  const { expenses = [] } = useExpensesFirestore();
+  const { summary } = useSalesSummaryFirestore();
+  const { staff = [] } = useStaffFirestore();
 
   // Chat sessions from Firestore
   const { chatSessions, loading: sessionsLoading, createChatSession, updateChatSessionMessages } = useChatSessionsFirestore();
@@ -117,19 +123,45 @@ USER CONTEXT:
 - Current Date: ${todayDateStr} (THIS IS TODAY - use this as reference for "today", "this week", etc.)
 - Active Transactions: ${transactions?.length || 0}
 - Stock Items Tracked: ${stockList?.length || 0}
+- Expenses Tracked: ${expenses?.length || 0}
+- Staff Members: ${staff?.length || 0}
 
 RECENT BUSINESS DATA:
 ${transactions && transactions.length > 0 ? `Last 10 Transactions:\n${JSON.stringify(transactions.slice(-10), null, 2)}` : 'No transaction data available'}
 
 ${stockList && stockList.length > 0 ? `Stock Inventory:\n${JSON.stringify(stockList.slice(0, 5), null, 2)}` : 'No stock data available'}
 
+${expenses && expenses.length > 0 ? `Recent Expenses:\n${JSON.stringify(expenses.slice(0, 10), null, 2)}` : 'No expenses data available'}
+
+${summary ? `Sales Summary:\n${JSON.stringify(summary, null, 2)}` : 'No sales summary data available'}
+
+${staff && staff.length > 0 ? `Staff Directory & Shifts:\n${JSON.stringify(staff.map(s => ({
+  name: s.name,
+  role: s.role,
+  shift: s.shift,
+  status: s.status,
+  shiftStatus: s.shiftStatus,
+  workHours: s.workHours,
+  totalEarned: s.totalEarned,
+  totalPay: s.totalPay,
+  clockInTime: s.clockInTime,
+  clockOutTime: s.clockOutTime
+})), null, 2)}` : 'No staff data available'}
+
+MENU CATALOG:
+- Nasi Lemak Biasa: RM 4.50
+- Mee Goreng: RM 5.00
+- Kopi O Ais: RM 2.50
+- Teh Tarik: RM 2.00
+- Roti Canai: RM 1.50
+
 YOUR ROLE:
-- Help manage stalls, calculate financials, track daily earnings, and provide actionable insights
+- Help manage stalls, calculate financials, track daily earnings, analyze expenses/sales summary/staffing, and provide actionable insights
 - Answer ANY general questions (cooking, programming, science, advice, culture, language, mathematics, etc.)
 - Be friendly, intelligent, conversational, concise, and professional
 - When asked about business metrics, reference the actual data above using the Current Date as reference
-- When filtering transactions for "today", only include transactions with date matching "${todayDateStr}"
-- Provide specific recommendations based on their actual transaction and stock data`;
+- When filtering transactions or expenses for "today", only include entries with date matching "${todayDateStr}"
+- Provide specific recommendations based on their actual transaction, stock, expenses, sales summary, and staff data`;
 
       const contents = [
         ...previousMessages.map(msg => ({
