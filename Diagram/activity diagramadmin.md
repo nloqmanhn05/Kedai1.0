@@ -1,4 +1,4 @@
-# Admin View Activity Diagram
+# Admin View Activity Diagram 1
 
 This diagram describes the activities, options, and operational paths available within the Admin view of the Kedai management system.
 
