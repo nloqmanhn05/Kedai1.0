@@ -9,72 +9,59 @@ flowchart TD
     Start([Start: Admin Session]) --> Auth[Admin Authentication]
     Auth --> Dashboard[View Admin Dashboard]
     
-    Dashboard --> Nav{Navigate to Module}
+    Dashboard --> Nav{Choose Module}
     
-    %% Dashboard Module
-    Nav -- 1. Dashboard & Analytics --> ViewMetrics[Monitor Financial Performance]
-    ViewMetrics --> ViewDailySales[Track Today's Sales, Transactions & Cash/E-Wallet Split]
-    ViewDailySales --> ViewRecentTransactions[Audit Recent Transactions List]
-    ViewRecentTransactions --> Dashboard
+    subgraph Analytics["1. Dashboard & Analytics"]
+        Nav --> ViewMetrics[Monitor Financial Performance]
+        ViewMetrics --> ViewDailySales[Track Today's Sales, Transactions & Cash/E-Wallet Split]
+        ViewDailySales --> ViewRecentTransactions[Audit Recent Transactions List]
+    end
     
-    %% Staff & Payroll Module
-    Nav -- 2. Staff Management --> ManageStaff{Select Action}
-    ManageStaff -- Register Staff --> InputStaffData[Enter Name, Email, IC, Role, Shift, Hourly Rate & PIN]
-    InputStaffData --> SaveStaff[Persist to Firestore: staff, staffsummary & staffreport]
-    ManageStaff -- Monitor Performance --> CheckShiftStats[Analyze Attendance, Hours Worked & Shift Status]
-    ManageStaff -- Edit / Delete --> UpdateStaffDb[Modify Staff Details or Delete Profile]
-    SaveStaff --> ManageStaff
-    UpdateStaffDb --> ManageStaff
-    CheckShiftStats --> ManageStaff
-    ManageStaff -- Back --> Dashboard
+    subgraph StaffMgmt["2. Staff & Payroll Management"]
+        Nav --> ManageStaff{Select Staff Action}
+        ManageStaff --> InputStaffData[Enter Name, Email, IC, Role, Shift, Hourly Rate & PIN]
+        InputStaffData --> SaveStaff[Persist to Firestore: staff, staffsummary & staffreport]
+        ManageStaff --> CheckShiftStats[Analyze Attendance, Hours Worked & Shift Status]
+        ManageStaff --> UpdateStaffDb[Modify Staff Details or Delete Profile]
+    end
     
-    %% Stock / Inventory Module
-    Nav -- 3. Stock Management --> ManageStock{Select Action}
-    ManageStock -- View List --> CheckStockLevels[Inspect Stock Levels & Low Stock Warnings]
-    ManageStock -- Add Product --> InputProductDetails[Enter Name, Category, Unit, Threshold, Emoji & Qty]
-    InputProductDetails --> SaveProduct[Save Item to stocks collection]
-    ManageStock -- Restock --> AddStockQty[Increment Item Total Quantity Atomically]
-    ManageStock -- Update Details / Delete --> EditProduct[Modify Properties or Delete Item]
-    SaveProduct --> ManageStock
-    AddStockQty --> ManageStock
-    EditProduct --> ManageStock
-    CheckStockLevels --> ManageStock
-    ManageStock -- Back --> Dashboard
+    subgraph StockMgmt["3. Stock & Inventory Control"]
+        Nav --> ManageStock{Select Stock Action}
+        ManageStock --> CheckStockLevels[Inspect Stock Levels & Low Stock Warnings]
+        ManageStock --> InputProductDetails[Enter Name, Category, Unit, Threshold, Emoji & Qty]
+        InputProductDetails --> SaveProduct[Save Item to stocks collection]
+        ManageStock --> AddStockQty[Increment Item Total Quantity Atomically]
+        ManageStock --> EditProduct[Modify Properties or Delete Item]
+    end
     
-    %% Ledger Module
-    Nav -- 4. Ledger & Accounting --> ManageLedger{Select Action}
-    ManageLedger -- View Ledger --> CheckLedgerHist[Inspect Receipts, Income & Expense Feeds]
-    ManageLedger -- Log Entry --> InputLedgerData[Specify Type, Amount, Category, Description & Date]
-    InputLedgerData --> SaveLedger[Add Document to expenses collection]
-    ManageLedger -- Delete Record --> RemoveLedgerDoc[Delete Entry Document]
-    SaveLedger --> ManageLedger
-    RemoveLedgerDoc --> ManageLedger
-    CheckLedgerHist --> ManageLedger
-    ManageLedger -- Back --> Dashboard
+    subgraph LedgerMgmt["4. Ledger & Accounting"]
+        Nav --> ManageLedger{Select Ledger Action}
+        ManageLedger --> CheckLedgerHist[Inspect Receipts, Income & Expense Feeds]
+        ManageLedger --> InputLedgerData[Specify Type, Amount, Category, Description & Date]
+        InputLedgerData --> SaveLedger[Add Document to expenses collection]
+        ManageLedger --> RemoveLedgerDoc[Delete Entry Document]
+    end
 
-    %% AI Assistant Module
-    Nav -- 5. Akira AI Assistant --> ChatSession{Select Action}
-    ChatSession -- Start Chat --> SubmitPrompt[Submit Prompt to Gemini AI]
-    SubmitPrompt --> AnalyzeContext[AI Contextual Analysis of Sales, Stock & Ledger data]
-    AnalyzeContext --> GetInsights[Receive Insights, Sales Predictions & Low-Stock Alerts]
-    ChatSession -- View History --> LoadPastChats[Retrieve Past Sessions from chatSessions]
-    GetInsights --> ChatSession
-    LoadPastChats --> ChatSession
-    ChatSession -- Back --> Dashboard
+    subgraph AIMgmt["5. Akira AI Assistant"]
+        Nav --> ChatSession{Select AI Action}
+        ChatSession --> SubmitPrompt[Submit Prompt to Gemini AI]
+        SubmitPrompt --> AnalyzeContext[AI Contextual Analysis of Sales, Stock & Ledger data]
+        AnalyzeContext --> GetInsights[Receive Insights, Sales Predictions & Low-Stock Alerts]
+        ChatSession --> LoadPastChats[Retrieve Past Sessions from chatSessions]
+    end
 
-    %% Settings Module
-    Nav -- 6. Settings & Config --> SystemConfig{Select Action}
-    SystemConfig -- Business Profile --> EditBizDetails[Update Business Name, Registration No, Address & Phone]
-    SystemConfig -- Payroll Rates --> ConfigureRates[Set Base Rates, Overtime Multipliers, EPF & SOCSO Rules]
-    SystemConfig -- Shift Settings --> ManageShifts[Modify Morning / Afternoon / Night Shift Times]
-    EditBizDetails --> SystemConfig
-    ConfigureRates --> SystemConfig
-    ManageShifts --> SystemConfig
-    SystemConfig -- Back --> Dashboard
+    subgraph SettingsMgmt["6. Settings & Config"]
+        Nav --> SystemConfig{Select Config Action}
+        SystemConfig --> EditBizDetails[Update Business Name, Registration No, Address & Phone]
+        SystemConfig --> ConfigureRates[Set Base Rates, Overtime Multipliers, EPF & SOCSO Rules]
+        SystemConfig --> ManageShifts[Modify Morning / Afternoon / Night Shift Times]
+    end
 
+    %% Exit Session
     Dashboard --> Logout[Log Out]
     Logout --> End([End: Session Terminated])
 ```
+
 
 ## Explanation of Admin Workflows
 
