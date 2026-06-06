@@ -1,249 +1,223 @@
 ## Overview
-This diagram represents the class structure and relationships of the Kedai business management system, including entities like User, Admin, Staff, Dashboard, Ledger, Stock, Transactions, Chat Sessions, and supporting services.
+This diagram represents the class structure, domain models, and relationships of the Kedai business management system. It details the TypeScript entity models, the React Context / Hook state layer, and their interactions with Firebase and Gemini AI services.
 
-### Key Classes
-- **User**: Base class for all users (Admin, Staff)
-- **Admin**: Extended user with full system access
-- **Staff**: Extended user with limited operations
-- **Dashboard**: Financial overview and real-time metrics
-- **Ledger**: Income/expense tracking and history
-- **Stock**: Inventory management system
-- **Transaction**: Sales transactions with items
-- **ChatSession**: AI assistant interactions
-- **PayrollRecord**: Salary and work hour management
-- **FirebaseService**: Backend persistence and authentication
+### Key Classes & Entities
+- **AuthContext**: Manages Firebase User Authentication state and actions.
+- **TypeScript Domain Entities**:
+  - **StaffMember**: Handles staff details, credentials, shifts, and attendance/payroll reporting.
+  - **StockItem**: Handles product/inventory tracking and low-stock limits.
+  - **SalesTransaction**: Represents checkout transactions and payment summaries.
+  - **Expense**: Represents ledger entries for income/expense tracking.
+  - **ChatSession & Message**: Formats conversation trees for the Akira AI Assistant.
+- **React Hook Data Providers**:
+  - **useStaffFirestore**: Aggregates core staff data, summaries, and reports.
+  - **useStockFirestore**: Coordinates inventory updates and real-time stock sync.
+  - **useTransactionsFirestore**: Manages transaction history.
+  - **useExpensesFirestore**: Coordinates financial ledger entries.
+  - **useChatSessionsFirestore**: Manages conversational AI state.
+
+---
 
 ## Class Diagram - Mermaid Code
 
 ```mermaid
 classDiagram
-    class User {
-        -userId: string
-        -email: string
-        -password: string
-        -fullName: string
-        -role: string
-        -createdAt: DateTime
-        +signUp()
-        +signIn()
-        +logout()
-        +updateProfile()
+    class AuthContext {
+        +user: FirebaseUser | null
+        +loading: boolean
+        +signUp(email: string, password: string) Promise
+        +signIn(email: string, password: string) Promise
+        +logout() Promise
     }
 
-    class Admin {
-        -adminId: string
-        -permissions: string[]
-        +manageStaff()
-        +configurePayroll()
-        +viewAllReports()
-        +exportData()
-    }
-
-    class Staff {
-        -staffId: string
-        -department: string
-        -salary: number
-        +recordSale()
-        +updateInventory()
-        +viewOwnTransactions()
-    }
-
-    class Dashboard {
-        -dashboardId: string
-        -totalEarnings: number
-        -dailyEarnings: number
-        -cashBalance: number
-        -eWalletBalance: number
-        +calculateTotalEarnings()
-        +getDailyEarnings()
-        +getCashVsEWallet()
-        +getTransactionSummary()
-    }
-
-    class Ledger {
-        -ledgerId: string
-        -entries: Entry[]
-        -totalIncome: number
-        -totalExpenses: number
-        +recordIncome()
-        +recordExpense()
-        +viewHistory()
-        +exportToXLSX()
-    }
-
-    class Entry {
-        -entryId: string
-        -type: string
-        -amount: number
-        -description: string
-        -date: DateTime
-        +create()
-        +update()
-        +delete()
-    }
-
-    class Stock {
-        -stockId: string
-        -items: StockItem[]
-        -lastUpdated: DateTime
-        +addItem()
-        +updateLevel()
-        +viewInventory()
-        +setLowStockAlert()
+    class StaffMember {
+        +id: string | number
+        +name: string
+        +email: string
+        +role: string
+        +joinDate: string
+        +phone: string
+        +clockInPin: string
+        +pin: string
+        +ic: string
+        +shift: string
+        +rate: string
+        +timestamp: number
+        +attendanceDays: number
+        +hoursWorked: number
+        +totalPay: number
+        +shiftStatus: string
+        +clockInTime: string
+        +clockOutTime: string
+        +workHours: number
+        +clockInTimestamp: number
+        +lastAttendanceDate: string
+        +status: string
+        +cashEarned: number
+        +ewalletEarned: number
+        +totalTransaction: number
+        +totalEarned: number
     }
 
     class StockItem {
-        -itemId: string
-        -name: string
-        -quantity: number
-        -category: string
-        -price: number
-        -lowStockThreshold: number
-        +updateQuantity()
-        +getCategoryItems()
-        +checkLowStock()
+        +id: string | number
+        +name: string
+        +emoji: string
+        +category: string
+        +lastRecordedDate: string
+        +totalInitial: number
+        +used: number
+        +lowStockThreshold: number
+        +unit: string
     }
 
-    class Transaction {
-        -transactionId: string
-        -amount: number
-        -paymentMethod: string
-        -timestamp: DateTime
-        -staff: Staff
-        -items: TransactionItem[]
-        +recordSale()
-        +calculateTotal()
-        +getTransactionHistory()
+    class SalesTransaction {
+        +id: string | number
+        +date: string
+        +time: string
+        +orderId: string
+        +staffName: string
+        +staffInitials: string
+        +staffColor: string
+        +amount: number
+        +paymentMethod: string
+        +timestamp: number
     }
 
-    class TransactionItem {
-        -itemId: string
-        -quantity: number
-        -unitPrice: number
-        +calculateLineTotal()
+    class Expense {
+        +id: string | number
+        +description: string
+        +subtext: string
+        +category: string
+        +amount: number
+        +date: string
+        +staff: string[]
+        +type: string
+        +timestamp: number
     }
 
     class ChatSession {
-        -sessionId: string
-        -messages: Message[]
-        -createdAt: DateTime
-        -updatedAt: DateTime
-        +startSession()
-        +addMessage()
-        +getInsights()
-        +saveHistory()
+        +id: string
+        +userId: string
+        +title: string
+        +createdAt: any
+        +updatedAt: any
+        +messages: Message[]
     }
 
     class Message {
-        -messageId: string
-        -sender: string
-        -content: string
-        -timestamp: DateTime
-        +create()
-        +getResponse()
+        +id: string
+        +sender: string
+        +text: string
+        +category: string
+        +title: string
+        +metrics: Metric[]
+        +actions: Action[]
     }
 
-    class PayrollRecord {
-        -payrollId: string
-        -staff: Staff
-        -workHours: number
-        -hourlyRate: number
-        -totalSalary: number
-        +calculatePayroll()
-        +recordWorkHours()
-        +generatePayslip()
+    class Metric {
+        +label: string
+        +value: string
+        +colorClass: string
     }
 
-    class Notification {
-        -notificationId: string
-        -type: string
-        -message: string
-        -recipient: User
-        -isRead: boolean
-        +sendNotification()
-        +markAsRead()
+    class Action {
+        +label: string
+        +icon: string
+        +variant: string
+    }
+
+    class useStaffFirestore {
+        +staff: StaffMember[]
+        +loading: boolean
+        +error: string | null
+        +addStaff(staffData: any) Promise
+        +updateStaff(staffId: string, staffData: any) Promise
+        +deleteStaff(staffId: string) Promise
+    }
+
+    class useStockFirestore {
+        +stockList: StockItem[]
+        +loading: boolean
+        +error: Error | null
+        +lastUpdatedTime: string
+        +lastUpdatedBy: string
+        +addItem(item: Omit, by: string) Promise
+        +restockItem(itemId: string|number, amount: number, by: string) Promise
+        +updateItemDetails(itemId: string|number, updatedFields: Partial, by: string) Promise
+        +deleteItem(itemId: string|number, by: string) Promise
+        +seedFallbackData(fallbackItems: StockItem[]) Promise
+    }
+
+    class useTransactionsFirestore {
+        +transactions: SalesTransaction[]
+        +loading: boolean
+        +error: string | null
+        +addTransaction(tx: Omit) Promise
+        +deleteTransaction(id: string|number) Promise
+    }
+
+    class useExpensesFirestore {
+        +expenses: Expense[]
+        +loading: boolean
+        +error: string | null
+        +addExpense(expense: Omit) Promise
+        +deleteExpense(id: string|number) Promise
+    }
+
+    class useChatSessionsFirestore {
+        +chatSessions: ChatSession[]
+        +loading: boolean
+        +error: string | null
+        +createChatSession(title: string, initialMessages: Message[]) Promise
+        +updateChatSessionMessages(sessionId: string, messages: Message[], newTitle: string) Promise
+        +deleteChatSession(sessionId: string) Promise
     }
 
     class FirebaseService {
-        -authService: AuthService
-        -firestoreService: FirestoreService
-        +authenticate()
-        +readData()
-        +writeData()
-        +deleteData()
+        <<external>>
+        +Auth: FirebaseAuth
+        +Firestore: FirebaseFirestore
     }
 
-    class AuthService {
-        -apiKey: string
-        +signUp()
-        +signIn()
-        +verifyToken()
-        +logout()
+    class GeminiAIService {
+        <<external>>
+        +generateContent()
     }
 
-    class FirestoreService {
-        -database: Firestore
-        +createDocument()
-        +readDocument()
-        +updateDocument()
-        +deleteDocument()
-        +queryCollection()
-    }
-
-    class AIService {
-        -geminiAPI: string
-        +sendPrompt()
-        +getInsights()
-        +generateRecommendations()
-    }
-
-    User <|-- Admin
-    User <|-- Staff
-    User "1" --> "*" Notification : receives
-    Dashboard "1" --> "1" User : viewedBy
-    Dashboard "1" --> "*" Transaction : displays
-    Ledger "1" --> "*" Entry : contains
-    Ledger "1" --> "1" User : ownedBy
-    Stock "1" --> "*" StockItem : contains
-    Stock "1" --> "1" Admin : managedBy
-    Transaction "1" --> "*" TransactionItem : contains
-    Transaction "1" --> "1" Staff : createdBy
+    %% Relationships
+    AuthContext "1" --> "1" FirebaseService : authenticates via
+    useStaffFirestore "1" --> "*" StaffMember : aggregates & supplies
+    useStockFirestore "1" --> "*" StockItem : manages
+    useTransactionsFirestore "1" --> "*" SalesTransaction : manages
+    useExpensesFirestore "1" --> "*" Expense : manages
+    useChatSessionsFirestore "1" --> "*" ChatSession : manages
     ChatSession "1" --> "*" Message : contains
-    ChatSession "1" --> "1" User : belongsTo
-    PayrollRecord "1" --> "1" Staff : recordFor
-    PayrollRecord "1" --> "1" Admin : createdBy
-    FirebaseService "1" --> "1" AuthService : uses
-    FirebaseService "1" --> "1" FirestoreService : uses
-    Ledger "1" --> "1" FirestoreService : persistsTo
-    Stock "1" --> "1" FirestoreService : persistsTo
-    Transaction "1" --> "1" FirestoreService : persistsTo
-    ChatSession "1" --> "1" FirestoreService : persistsTo
-    ChatSession "1" --> "1" AIService : communicatesWith
+    Message "1" --> "*" Metric : displays
+    Message "1" --> "*" Action : offers
+    
+    useStaffFirestore ..> FirebaseService : persists to
+    useStockFirestore ..> FirebaseService : persists to
+    useTransactionsFirestore ..> FirebaseService : persists to
+    useExpensesFirestore ..> FirebaseService : persists to
+    useChatSessionsFirestore ..> FirebaseService : persists to
+    useChatSessionsFirestore ..> GeminiAIService : communicates with
 ```
 
-    ## Key Features
+---
 
-### Class Hierarchy:
-- **User** (Base Class) - Common attributes and methods
-  - **Admin** - Administrative operations and configuration
-  - **Staff** - Staff operations and sales
-  
-### Entity Classes:
-1. **Dashboard** - Financial overview and earnings tracking
-2. **Ledger & Entry** - Income/expense management
-3. **Stock & StockItem** - Inventory management with categories
-4. **Transaction & TransactionItem** - Sales transactions
-5. **ChatSession & Message** - AI conversation history
-6. **PayrollRecord** - Salary and hour tracking
-7. **Notification** - System notifications
+## Architectural & Model Features
 
-### Service Classes:
-- **FirebaseService** - Main backend orchestrator
-- **AuthService** - Authentication and authorization
-- **FirestoreService** - Database operations
-- **AIService** - Google Gemini integration
+### Authentication & Sessions:
+- **AuthContext** relies directly on Firebase Auth and manages session boundaries.
+- **useChatSessionsFirestore** isolates sessions by matching `userId` to the currently logged in user's ID.
 
-### Relationships:
-- **Inheritance**: Admin and Staff extend User
-- **Composition**: Classes contain multiple child entities (Ledger contains Entries, etc.)
-- **Association**: Classes reference other classes (Dashboard displays Transactions, etc.)
+### Staff & Attendance Schema:
+- **useStaffFirestore** maps Firestore data from three collections: `staff` (identity), `staffsummary` (live check-ins, sales/revenue performance), and `staffreport` (attendance & pay totals).
+
+### Ledger (Expenses):
+- **useExpensesFirestore** queries transactions under the type `income` or `expense` to calculate live metrics.
+
+### Stock & Inventory:
+- **useStockFirestore** uses atomic increments (`increment`) to prevent race conditions during restocks and updates metadata in `metadata/stock_status`.
+
