@@ -238,6 +238,7 @@ export default function Menu() {
         date: dateStr,
         time: timeStr,
         orderId,
+        staffId: activeStaff?.id ? String(activeStaff.id) : 'unknown',
         staffName: activeStaff?.name || 'Unknown Staff',
         staffId: activeStaff?.id || undefined,
         staffInitials: initials,
