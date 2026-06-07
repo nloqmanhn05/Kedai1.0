@@ -86,10 +86,11 @@ export function useChatSessionsFirestore() {
   const createChatSession = async (title: string, initialMessages: Message[] = []) => {
     if (!user) throw new Error('User must be logged in to create a chat session');
     try {
+      const cleanMessages = JSON.parse(JSON.stringify(initialMessages));
       const docRef = await addDoc(collection(db, 'chatSessions'), {
         userId: user.uid,
         title,
-        messages: initialMessages,
+        messages: cleanMessages,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
@@ -102,8 +103,9 @@ export function useChatSessionsFirestore() {
 
   const updateChatSessionMessages = async (sessionId: string, messages: Message[], newTitle?: string) => {
     try {
+      const cleanMessages = JSON.parse(JSON.stringify(messages));
       const fields: any = {
-        messages,
+        messages: cleanMessages,
         updatedAt: serverTimestamp()
       };
       if (newTitle) {

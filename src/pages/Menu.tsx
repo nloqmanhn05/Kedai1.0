@@ -239,6 +239,7 @@ export default function Menu() {
         time: timeStr,
         orderId,
         staffName: activeStaff?.name || 'Unknown Staff',
+        staffId: activeStaff?.id || undefined,
         staffInitials: initials,
         staffColor: staffColor,
         amount: total,

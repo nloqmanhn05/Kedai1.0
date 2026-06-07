@@ -21,6 +21,7 @@ export function useTransactionsFirestore() {
           time: data.time,
           orderId: data.orderId,
           staffName: data.staffName,
+          staffId: data.staffId || undefined,
           staffInitials: data.staffInitials,
           staffColor: data.staffColor,
           amount: data.amount,

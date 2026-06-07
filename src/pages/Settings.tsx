@@ -3,12 +3,15 @@ import { Layout } from '../components/Layout';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStaffFirestore } from '../hooks/useStaffFirestore';
 import { useTransactionsFirestore } from '../hooks/useTransactionsFirestore';
+import { useAuth } from '../contexts/AuthContext';
+import * as XLSX from 'xlsx';
 
 interface StaffProfile {
   id: string;
   verificationId: string;
   name: string;
   role: string;
+  email?: string;
   status: 'Active' | 'On Leave';
   statusColor: string;
   totalHours: number;
@@ -60,9 +63,12 @@ const tabs: TabOption[] = [
   { id: 'notifications', label: 'Notifications' },
   { id: 'my-account', label: 'My Account' },
   { id: 'danger-zone', label: 'Danger Zone', isDanger: true },
-];function StaffSettingsView() {
-  const { staff: firestoreStaff, updateStaff } = useStaffFirestore();
+];
+
+function StaffSettingsView() {
+  const { staff: firestoreStaff, error: staffError, updateStaff } = useStaffFirestore();
   const { transactions: firestoreTransactions } = useTransactionsFirestore();
+  const { user } = useAuth();
   const [selectedStaffId, setSelectedStaffId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showToast, setShowToast] = useState(false);
@@ -82,12 +88,21 @@ const tabs: TabOption[] = [
 
   const [staffData, setStaffData] = useState<StaffProfile[]>([]);
 
-  // Handle default selection when list changes
+  // Handle default selection when list changes or user logs in
   useEffect(() => {
-    if ((!selectedStaffId || !staffData.find(s => s.id === selectedStaffId)) && staffData.length > 0) {
-      setSelectedStaffId(staffData[0].id);
+    if (staffData.length > 0) {
+      if (user?.email) {
+        const matchingStaff = staffData.find(s => s.email?.toLowerCase() === user.email?.toLowerCase());
+        if (matchingStaff) {
+          setSelectedStaffId(matchingStaff.id);
+          return;
+        }
+      }
+      if (!selectedStaffId || !staffData.find(s => s.id === selectedStaffId)) {
+        setSelectedStaffId(staffData[0].id);
+      }
     }
-  }, [staffData, selectedStaffId]);
+  }, [staffData, selectedStaffId, user]);
 
   // Sync staffData with firestoreStaff and firestoreTransactions real-time listeners from Firestore
   useEffect(() => {
@@ -103,9 +118,8 @@ const tabs: TabOption[] = [
         const totalPay = item.totalPay ?? 0;
 
         // Calculate transaction metrics dynamically from Firestore transactions
-        const staffTransactions = firestoreTransactions.filter(
-          tx => tx.staffName && tx.staffName.trim().toLowerCase() === item.name.trim().toLowerCase()
-        );
+        // Only match by strict staffId to prevent new staff with same names from inheriting legacy data
+        const staffTransactions = firestoreTransactions.filter(tx => tx.staffId === String(item.id));
         const txCount = staffTransactions.length;
         const cashEarned = staffTransactions
           .filter(tx => !tx.paymentMethod || tx.paymentMethod === 'cash')
@@ -119,6 +133,7 @@ const tabs: TabOption[] = [
           verificationId: item.clockInPin || item.pin || '2250000',
           name: item.name,
           role: item.role || 'Staff',
+          email: item.email || '',
           status: (item.status === 'Active' ? 'Active' : 'On Leave') as 'Active' | 'On Leave',
           statusColor: item.status === 'Active' ? 'bg-primary-container text-on-primary-container' : 'bg-surface-variant text-on-surface-variant',
           totalHours: hoursWorked,
@@ -231,12 +246,20 @@ const tabs: TabOption[] = [
         workHours: recordedHours,
         clockInTimestamp: null,
         lastAttendanceDate: todayDate
-      }).catch(err => console.error("Error updating Firestore stats:", err));
+      }).then(() => {
+        setToastMessage(`Syif berjaya ditutup untuk ${activeStaff.name}!`);
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+      }).catch(err => {
+        console.error("Error updating Firestore stats:", err);
+        alert("Failed to clock out in database: " + err.message);
+      });
+    } else {
+      // Mock data local update
+      setToastMessage(`Syif berjaya ditutup untuk ${activeStaff.name}!`);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
     }
-
-    setToastMessage(`Syif berjaya ditutup untuk ${activeStaff.name}!`);
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
   };
 
   const executeClockIn = (id: string) => {
@@ -257,18 +280,29 @@ const tabs: TabOption[] = [
       return s;
     }));
 
-    // Persist shift fields to Firestore so onSnapshot re-sync keeps them
-    updateStaff(id, {
-      shiftStatus: 'In Progress',
-      clockInTime: timeStr,
-      clockOutTime: 'N/A',
-      workHours: 0,
-      clockInTimestamp: now.getTime()
-    }).catch(err => console.error("Error updating Firestore clock-in:", err));
-
-    setToastMessage(`Clock In recorded for ${activeStaff.name}!`);
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
+    const dbStaff = firestoreStaff.find(s => s.id === id);
+    if (dbStaff) {
+      // Persist shift fields to Firestore so onSnapshot re-sync keeps them
+      updateStaff(id, {
+        shiftStatus: 'In Progress',
+        clockInTime: timeStr,
+        clockOutTime: 'N/A',
+        workHours: 0,
+        clockInTimestamp: now.getTime()
+      }).then(() => {
+        setToastMessage(`Clock In recorded for ${activeStaff.name}!`);
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+      }).catch(err => {
+        console.error("Error updating Firestore clock-in:", err);
+        alert("Failed to clock in in database: " + err.message);
+      });
+    } else {
+      // Mock data local update
+      setToastMessage(`Clock In recorded for ${activeStaff.name}!`);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    }
   };
 
   const handleTutupSyif = () => {
@@ -369,6 +403,11 @@ const tabs: TabOption[] = [
             </div>
           ) : (
             <div className="flex flex-col gap-6">
+            {staffError && (
+              <div className="bg-error/10 text-error border border-error/20 p-4 rounded-2xl text-xs font-semibold">
+                Database Error: {staffError}
+              </div>
+            )}
             <div>
             <h2 className="font-headline-lg text-xl font-bold text-on-surface mb-1">Shift Performance</h2>
             <p className="text-xs text-on-surface-variant">Analyze logged hours, transactions and shift close conditions.</p>
@@ -667,45 +706,29 @@ export default function Settings() {
   const [permPayslip, setPermPayslip] = useState(true);
   const [permShifts, setPermShifts] = useState(false);
 
-  // High-fidelity Staff Account Control States
-  const [staffList, setStaffList] = useState<StaffAccount[]>(() => {
-    const saved = localStorage.getItem('wise_staff_accounts');
-    if (saved) {
-      try {
-        return JSON.parse(saved) as StaffAccount[];
-      } catch (e) {}
-    }
-    return [
-      { id: 'EMP-042', verificationId: '2250101', name: 'Siti Aminah', position: 'Cashier', email: 'siti.a@company.com', ic: '940512-14-5566', phone: '+60123456789', joinDate: '2024-02-10', shift: 'Morning', rate: '6.00', lastLogin: 'Today, 08:15 AM', status: 'Active' },
-      { id: 'EMP-018', verificationId: '2250102', name: 'Hafiz Rahman', position: 'Supervisor', email: 'hafiz.r@company.com', ic: '880101-10-1234', phone: '+60172233445', joinDate: '2023-11-15', shift: 'Afternoon', rate: '8.00', lastLogin: 'Yesterday, 17:30 PM', status: 'Active' },
-      { id: 'EMP-055', verificationId: '2250103', name: 'Ahmad Fauzi', position: 'Cashier', email: 'ahmad.f@company.com', ic: '921120-08-9988', phone: '+60198877665', joinDate: '2024-01-05', shift: 'Morning', rate: '6.00', lastLogin: 'Oct 24, 09:00 AM', status: 'Active' },
-      { id: 'EMP-082', verificationId: '2250104', name: 'Nurul Baiti', position: 'Kitchen Staff', email: 'nurul.b@company.com', ic: '960824-14-3321', phone: '+60112233445', joinDate: '2023-09-12', shift: 'Morning', rate: '6.50', lastLogin: 'Sep 12, 14:20 PM', status: 'Inactive' },
-      { id: 'EMP-091', verificationId: '2250105', name: 'Zulaikha Aziz', position: 'Cleaner', email: 'zulaikha.a@company.com', ic: '900101-14-5555', phone: '+60124455667', joinDate: '2024-03-01', shift: 'Morning', rate: '5.50', lastLogin: 'Today, 06:45 AM', status: 'Active' }
-    ];
-  });
+  // Staff Account Control States — starts empty, populated from Firestore
+  const [staffList, setStaffList] = useState<StaffAccount[]>([]);
 
-  // Sync firestoreStaff into staffList when it changes
+  // Sync firestoreStaff into staffList — always reflects Firestore (including empty)
   useEffect(() => {
-    if (firestoreStaff && firestoreStaff.length > 0) {
-      const mapped = firestoreStaff.map(s => {
-        const item = s as any;
-        return {
-          id: item.id,
-          verificationId: item.clockInPin || item.pin || '2250000',
-          name: item.name,
-          position: item.role || 'Staff',
-          email: item.email,
-          ic: item.ic || '',
-          phone: item.phone || '',
-          joinDate: item.joinDate || '',
-          shift: item.shift || 'Morning',
-          rate: String(item.rate || '6.00'),
-          lastLogin: item.lastLogin || 'Never logged in',
-          status: (item.status === 'Active' || item.status === 'Inactive') ? item.status : 'Active'
-        };
-      });
-      setStaffList(mapped);
-    }
+    const mapped = firestoreStaff.map(s => {
+      const item = s as any;
+      return {
+        id: item.id,
+        verificationId: item.clockInPin || item.pin || '2250000',
+        name: item.name,
+        position: item.role || 'Staff',
+        email: item.email,
+        ic: item.ic || '',
+        phone: item.phone || '',
+        joinDate: item.joinDate || '',
+        shift: item.shift || 'Morning',
+        rate: String(item.rate || '6.00'),
+        lastLogin: item.lastLogin || 'Never logged in',
+        status: (item.status === 'Active' || item.status === 'Inactive') ? item.status : 'Active'
+      };
+    });
+    setStaffList(mapped);
   }, [firestoreStaff]);
 
   useEffect(() => {
@@ -769,6 +792,45 @@ export default function Settings() {
   const handleDangerReset = (action: string) => {
     if (confirm(`CRITICAL WARNING: Are you sure you want to perform: [${action}]? This action CANNOT be undone.`)) {
       alert(`${action} successful. Workspace has been updated.`);
+    }
+  };
+
+  const handleExportStaff = () => {
+    try {
+      const exportData = staffList.map(staff => ({
+        'Staff ID': staff.id,
+        'Name': staff.name,
+        'Position': staff.position,
+        'Email Address': staff.email || 'N/A',
+        'IC / Passport': staff.ic || 'N/A',
+        'Phone Number': staff.phone || 'N/A',
+        'Join Date': staff.joinDate || 'N/A',
+        'Shift': staff.shift || 'N/A',
+        'Hourly Rate (RM)': staff.rate || '0.00',
+        'Status': staff.status,
+        'Last Login': staff.lastLogin || 'N/A'
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      
+      const colWidths = [
+        { wch: 15 }, { wch: 25 }, { wch: 20 }, { wch: 30 }, { wch: 20 },
+        { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 25 }
+      ];
+      worksheet['!cols'] = colWidths;
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Staff Accounts');
+      
+      const fileName = `Staff_Directory_${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
+      
+      setToastMessage('Staff directory exported to Excel successfully!');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    } catch (error) {
+      console.error('Error exporting staff data:', error);
+      alert('Failed to export staff data. Please try again.');
     }
   };
 
@@ -1262,7 +1324,10 @@ export default function Settings() {
                       <span className="material-symbols-outlined text-[18px]">filter_list</span>
                       <span>Filter</span>
                     </button>
-                    <button className="flex items-center gap-2 px-4 py-2 border border-outline-variant/50 rounded-full text-on-surface-variant hover:bg-surface-container font-label-lg text-xs font-bold transition-colors cursor-pointer">
+                    <button 
+                      onClick={handleExportStaff}
+                      className="flex items-center gap-2 px-4 py-2 border border-outline-variant/50 rounded-full text-on-surface-variant hover:bg-surface-container font-label-lg text-xs font-bold transition-colors cursor-pointer"
+                    >
                       <span className="material-symbols-outlined text-[18px]">download</span>
                       <span>Export</span>
                     </button>
@@ -1375,6 +1440,23 @@ export default function Settings() {
                                         <span className="material-symbols-outlined text-[20px]">more_vert</span>
                                       </button>
                                     )}
+                                    <button
+                                      onClick={() => {
+                                        if (confirm(`Permanently delete ${staff.name}'s account and all their data? This action cannot be undone.`)) {
+                                          deleteStaff(staff.id).then(() => {
+                                            setToastMessage(`${staff.name} has been removed.`);
+                                            setShowToast(true);
+                                            setTimeout(() => setShowToast(false), 3000);
+                                          }).catch(err => {
+                                            alert('Error deleting staff: ' + err.message);
+                                          });
+                                        }
+                                      }}
+                                      className="p-2 text-on-surface-variant hover:text-error hover:bg-error-container/20 rounded-full transition-colors cursor-pointer"
+                                      title="Delete Staff"
+                                    >
+                                      <span className="material-symbols-outlined text-[20px]">delete</span>
+                                    </button>
                                   </div>
                                 </td>
                               </tr>

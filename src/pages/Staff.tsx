@@ -14,220 +14,36 @@ interface StaffDisplay extends StaffMember {
   status?: 'Paid' | 'Pending';
 }
 
-const initialStaff: StaffDisplay[] = [
-  {
-    id: 1,
-    name: 'Ahmad Razali',
-    email: 'ahmad.r@example.com',
-    role: 'Cashier',
-    joinDate: '01 Jan 2026',
-    attendance: '20/22 days',
-    attendancePct: 90,
-    hours: 160,
-    rate: 6.00,
-    totalPay: 960.00,
-    status: 'Paid'
-  },
-  {
-    id: 2,
-    name: 'Sarah Lee',
-    email: 'sarah.l@example.com',
-    role: 'Supervisor',
-    joinDate: '15 Mar 2025',
-    attendance: '22/22 days',
-    attendancePct: 100,
-    hours: 176,
-    rate: 8.00,
-    totalPay: 1408.00,
-    status: 'Pending'
-  },
-  {
-    id: 3,
-    name: 'Siti Aminah',
-    email: 'siti.a@example.com',
-    role: 'Kitchen Staff',
-    joinDate: '10 Feb 2024',
-    attendance: '21/22 days',
-    attendancePct: 95,
-    hours: 168,
-    rate: 6.00,
-    totalPay: 1008.00,
-    status: 'Paid'
-  },
-  {
-    id: 4,
-    name: 'Lim Wei Kang',
-    email: 'lim.w@example.com',
-    role: 'Service Staff',
-    joinDate: '01 Mar 2024',
-    attendance: '19/22 days',
-    attendancePct: 86,
-    hours: 152,
-    rate: 6.00,
-    totalPay: 912.00,
-    status: 'Paid'
-  },
-  {
-    id: 5,
-    name: 'Sarah Tan',
-    email: 'sarah.t@example.com',
-    role: 'Service Staff',
-    joinDate: '12 Apr 2024',
-    attendance: '18/22 days',
-    attendancePct: 82,
-    hours: 144,
-    rate: 6.00,
-    totalPay: 864.00,
-    status: 'Paid'
-  },
-  {
-    id: 6,
-    name: 'Ahmad Faiz',
-    email: 'ahmad.f@example.com',
-    role: 'Head Chef',
-    joinDate: '15 Jan 2024',
-    attendance: '22/22 days',
-    attendancePct: 100,
-    hours: 176,
-    rate: 10.00,
-    totalPay: 1760.00,
-    status: 'Paid'
-  },
-  {
-    id: 7,
-    name: 'Mei Ling',
-    email: 'mei.l@example.com',
-    role: 'Kitchen Staff',
-    joinDate: '20 May 2024',
-    attendance: '20/22 days',
-    attendancePct: 90,
-    hours: 160,
-    rate: 6.00,
-    totalPay: 960.00,
-    status: 'Paid'
-  },
-  {
-    id: 8,
-    name: 'Mohd Razak',
-    email: 'razak.m@example.com',
-    role: 'Supervisor',
-    joinDate: '01 Jun 2024',
-    attendance: '21/22 days',
-    attendancePct: 95,
-    hours: 168,
-    rate: 8.00,
-    totalPay: 1344.00,
-    status: 'Pending'
-  },
-  {
-    id: 9,
-    name: 'Jane Doe',
-    email: 'jane.d@example.com',
-    role: 'Cleaner',
-    joinDate: '10 Jul 2024',
-    attendance: '20/22 days',
-    attendancePct: 90,
-    hours: 160,
-    rate: 5.50,
-    totalPay: 880.00,
-    status: 'Paid'
-  },
-  {
-    id: 10,
-    name: 'John Smith',
-    email: 'john.s@example.com',
-    role: 'Kitchen Staff',
-    joinDate: '01 Aug 2024',
-    attendance: '18/22 days',
-    attendancePct: 82,
-    hours: 144,
-    rate: 6.00,
-    totalPay: 864.00,
-    status: 'Paid'
-  },
-  {
-    id: 11,
-    name: 'Alex Wong',
-    email: 'alex.w@example.com',
-    role: 'Cashier',
-    joinDate: '15 Sep 2024',
-    attendance: '21/22 days',
-    attendancePct: 95,
-    hours: 168,
-    rate: 6.00,
-    totalPay: 1008.00,
-    status: 'Paid'
-  },
-  {
-    id: 12,
-    name: 'Fatimah Ali',
-    email: 'fatimah.a@example.com',
-    role: 'Cleaner',
-    joinDate: '01 Oct 2024',
-    attendance: '22/22 days',
-    attendancePct: 100,
-    hours: 176,
-    rate: 5.50,
-    totalPay: 968.00,
-    status: 'Paid'
-  }
-];
 
 export default function Staff() {
   // Fetch staff from Firestore
   const { staff: firestoreStaff, loading, error, updateStaff, deleteStaff } = useStaffFirestore();
   
-  // Enhanced staff list with UI data
-  const [staffList, setStaffList] = useState<StaffDisplay[]>(() => {
-    const saved = localStorage.getItem('wise_staff_accounts');
-    if (saved) {
-      try {
-        const accounts = JSON.parse(saved);
-        return accounts.map((acc: any) => ({
-          id: acc.id,
-          name: acc.name,
-          email: acc.email,
-          role: acc.position || 'Staff',
-          joinDate: acc.joinDate || '01 Jan 2026',
-          phone: acc.phone,
-          clockInPin: acc.clockInPin || '',
-          attendance: '22/22 days',
-          attendancePct: 100,
-          hours: 160,
-          rate: 6.00,
-          totalPay: 960.00,
-          status: acc.status === 'Active' ? 'Pending' : 'Pending'
-        }));
-      } catch (e) {}
-    }
-    return initialStaff;
-  });
+  // Enhanced staff list — starts empty, populated from Firestore
+  const [staffList, setStaffList] = useState<StaffDisplay[]>([]);
 
-  // Sync Firestore data with local state — new staff start at zero, accumulate as they clock in/out
+  // Sync Firestore data with local state — always reflects Firestore (including empty)
   useEffect(() => {
-    if (firestoreStaff.length > 0) {
-      const enhancedStaff = firestoreStaff.map(staff => {
-        const s = staff as any;
-        // Read persisted payroll stats from Firestore (default to 0 for brand-new staff)
-        const attendanceDays: number = s.attendanceDays ?? 0;
-        const hoursWorked: number = s.hoursWorked ?? 0;
-        const hourlyRate: number = parseFloat(s.rate) || 6.00;
-        const totalPay: number = s.totalPay ?? (hoursWorked * hourlyRate);
-        const totalWorkDays = 22; // current month work days
-        const attendancePct = totalWorkDays > 0 ? Math.round((attendanceDays / totalWorkDays) * 100) : 0;
+    const enhancedStaff = firestoreStaff.map(staff => {
+      const s = staff as any;
+      const attendanceDays: number = s.attendanceDays ?? 0;
+      const hoursWorked: number = s.hoursWorked ?? 0;
+      const hourlyRate: number = parseFloat(s.rate) || 6.00;
+      const totalPay: number = s.totalPay ?? (hoursWorked * hourlyRate);
+      const totalWorkDays = 22;
+      const attendancePct = totalWorkDays > 0 ? Math.round((attendanceDays / totalWorkDays) * 100) : 0;
 
-        return {
-          ...staff,
-          attendance: `${attendanceDays}/${totalWorkDays} days`,
-          attendancePct,
-          hours: hoursWorked,
-          rate: hourlyRate,
-          totalPay,
-          status: 'Pending' as const
-        };
-      });
-      setStaffList(enhancedStaff);
-    }
+      return {
+        ...staff,
+        attendance: `${attendanceDays}/${totalWorkDays} days`,
+        attendancePct,
+        hours: hoursWorked,
+        rate: hourlyRate,
+        totalPay,
+        status: 'Pending' as const
+      };
+    });
+    setStaffList(enhancedStaff);
   }, [firestoreStaff]);
 
   // Still listen for registry changes from Settings page (for backwards compatibility)

@@ -114,9 +114,10 @@ import { useSearchParams } from 'react-router-dom';
 
 export default function TransactionHistory() {
   const [searchParams] = useSearchParams();
-  const staffParam = searchParams.get('staff');
+  const staffIdParam = searchParams.get('staffId');
+  const staffParam = searchParams.get('staff'); // legacy fallback
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedStaff, setSelectedStaff] = useState(staffParam || 'All Staff');
+  const [selectedStaff, setSelectedStaff] = useState(staffIdParam || staffParam || 'All Staff');
   const [selectedDate, setSelectedDate] = useState('All Dates');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
@@ -136,8 +137,19 @@ export default function TransactionHistory() {
 
   // Extract unique staff and dates for dynamic filters
   const availableStaff = useMemo(() => {
-    const staffSet = new Set(allTransactions.map(tx => tx.staffName));
-    return ['All Staff', ...Array.from(staffSet)].sort();
+    const staffMap = new Map<string, string>(); // id -> name
+    allTransactions.forEach(tx => {
+      if (tx.staffId) {
+        staffMap.set(tx.staffId, tx.staffName || 'Unknown Staff');
+      } else if (tx.staffName) {
+        // legacy fallback
+        staffMap.set(tx.staffName, tx.staffName);
+      }
+    });
+    
+    const staffList = Array.from(staffMap.entries()).map(([id, name]) => ({ id, name }));
+    staffList.sort((a, b) => a.name.localeCompare(b.name));
+    return [{ id: 'All Staff', name: 'All Staff' }, ...staffList];
   }, [allTransactions]);
 
   const availableDates = useMemo(() => {
@@ -148,9 +160,11 @@ export default function TransactionHistory() {
   // Filter transactions dynamically
   const filteredTransactions = useMemo(() => {
     return allTransactions.filter((tx) => {
-      // Staff filter
-      if (selectedStaff !== 'All Staff' && tx.staffName !== selectedStaff) {
-        return false;
+      // Staff filter (by ID with legacy name fallback)
+      if (selectedStaff !== 'All Staff') {
+        const matchesId = tx.staffId === selectedStaff;
+        const matchesName = !tx.staffId && tx.staffName === selectedStaff;
+        if (!matchesId && !matchesName) return false;
       }
       
       // Date filter
@@ -281,7 +295,7 @@ export default function TransactionHistory() {
                 className="bg-surface-container border border-outline-variant/30 text-xs font-bold rounded-3xl py-1 !h-9 pr-10 pl-4 focus:ring-1 focus:ring-primary cursor-pointer text-on-surface appearance-none"
                 style={{ backgroundImage: `url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%2379747E' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E")`, backgroundPosition: 'right 0.75rem center', backgroundSize: '1.2em 1.2em', backgroundRepeat: 'no-repeat' }}
               >
-                {availableStaff.map(staff => <option key={staff} value={staff}>{staff}</option>)}
+                {availableStaff.map(staff => <option key={staff.id} value={staff.id}>{staff.name}</option>)}
               </select>
             </div>
 

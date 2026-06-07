@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
 import {
   collection,
@@ -9,34 +9,15 @@ import {
   deleteDoc,
   doc,
   orderBy,
-  setDoc,
 } from 'firebase/firestore';
 import { StaffMember } from '../pages/types';
-import { useStaffSummaryFirestore, StaffSummaryData } from './useStaffSummaryFirestore';
-import { useStaffReportFirestore, StaffReportData } from './useStaffReportFirestore';
 
 export function useStaffFirestore() {
-  const [staffList, setStaffList] = useState<any[]>([]);
-  const [loadingStaff, setLoadingStaff] = useState(true);
-  const [errorStaff, setErrorStaff] = useState<string | null>(null);
+  const [staffList, setStaffList] = useState<StaffMember[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const {
-    summaries,
-    loading: loadingSummary,
-    error: errorSummary,
-    updateSummary,
-    deleteSummary
-  } = useStaffSummaryFirestore();
-
-  const {
-    reports,
-    loading: loadingReport,
-    error: errorReport,
-    updateReport,
-    deleteReport
-  } = useStaffReportFirestore();
-
-  // Real-time listener for core staff members
+  // Real-time listener for all staff members directly inside 'staff' collection
   useEffect(() => {
     const q = query(collection(db, 'staff'), orderBy('name', 'asc'));
 
@@ -58,60 +39,45 @@ export function useStaffFirestore() {
             ic: data.ic || '',
             shift: data.shift || 'Morning',
             rate: data.rate || '6.00',
-          };
+            // Consolidated summary fields
+            clockInTime: data.clockInTime || 'N/A',
+            clockOutTime: data.clockOutTime || 'N/A',
+            workHours: data.workHours ?? 0,
+            clockInTimestamp: data.clockInTimestamp || undefined,
+            lastAttendanceDate: data.lastAttendanceDate || undefined,
+            status: data.status || 'Active',
+            lastLogin: data.lastLogin || 'Never logged in',
+            timestamp: data.timestamp || Date.now(),
+            cashEarned: data.cashEarned ?? 0,
+            ewalletEarned: data.ewalletEarned ?? 0,
+            totalTransaction: data.totalTransaction ?? 0,
+            totalEarned: data.totalEarned ?? 0,
+            // Consolidated report fields
+            attendanceDays: data.attendanceDays ?? 0,
+            hoursWorked: data.hoursWorked ?? 0,
+            totalPay: data.totalPay ?? 0,
+            shiftStatus: data.shiftStatus || 'Ended',
+          } as StaffMember;
         });
         setStaffList(list);
-        setLoadingStaff(false);
+        setLoading(false);
       },
       (err) => {
         console.error('Error fetching staff from Firestore:', err);
-        setErrorStaff(err.message);
-        setLoadingStaff(false);
+        setError(err.message);
+        setLoading(false);
       }
     );
 
     return unsubscribe;
   }, []);
 
-  // Combine core staff, summaries, and reports
-  const staff = useMemo(() => {
-    return staffList.map((item) => {
-      const summary = (summaries[item.id] || {}) as Partial<StaffSummaryData>;
-      const report = (reports[item.id] || {}) as Partial<StaffReportData>;
-      return {
-        ...item,
-        // Summary fields
-        clockInTime: summary.clockInTime || 'N/A',
-        clockOutTime: summary.clockOutTime || 'N/A',
-        workHours: summary.workHours ?? 0,
-        clockInTimestamp: summary.clockInTimestamp,
-        lastAttendanceDate: summary.lastAttendanceDate,
-        status: summary.status || 'Active',
-        lastLogin: summary.lastLogin || 'Never logged in',
-        timestamp: summary.timestamp || Date.now(),
-        cashEarned: summary.cashEarned ?? 0,
-        ewalletEarned: summary.ewalletEarned ?? 0,
-        totalTransaction: summary.totalTransaction ?? 0,
-        totalEarned: summary.totalEarned ?? 0,
-        // Report fields
-        attendanceDays: report.attendanceDays ?? 0,
-        hoursWorked: report.hoursWorked ?? 0,
-        totalPay: report.totalPay ?? 0,
-        shiftStatus: report.shiftStatus || 'Ended',
-      } as StaffMember;
-    });
-  }, [staffList, summaries, reports]);
-
-  const loading = loadingStaff || loadingSummary || loadingReport;
-  const error = errorStaff || errorSummary || errorReport;
-
-  // Add a new staff member
+  // Add a new staff member with all tracking fields consolidated
   const addStaff = async (staffData: any) => {
     try {
       const pinVal = staffData.pin || staffData.clockInPin || '';
       
-      // Separate core staff fields
-      const coreFields = {
+      const fields = {
         name: staffData.name || '',
         email: staffData.email || '',
         role: staffData.role || '',
@@ -122,14 +88,6 @@ export function useStaffFirestore() {
         ic: staffData.ic || '',
         shift: staffData.shift || 'Morning',
         rate: staffData.rate || '6.00',
-      };
-
-      // Add to core collection
-      const docRef = await addDoc(collection(db, 'staff'), coreFields);
-      const staffId = docRef.id;
-
-      // Add corresponding summary document
-      await setDoc(doc(db, 'staffsummary', staffId), {
         clockInTime: 'N/A',
         clockOutTime: 'N/A',
         workHours: 0,
@@ -142,90 +100,46 @@ export function useStaffFirestore() {
         ewalletEarned: 0,
         totalTransaction: 0,
         totalEarned: 0,
-      });
-
-      // Add corresponding report document
-      await setDoc(doc(db, 'staffreport', staffId), {
         attendanceDays: 0,
         hoursWorked: 0,
         totalPay: 0,
         shiftStatus: 'Ended',
-      });
+      };
+
+      await addDoc(collection(db, 'staff'), fields);
     } catch (err) {
       console.error('Error adding staff to Firestore:', err);
       throw err;
     }
   };
 
-  // Update existing staff member
+  // Update staff fields directly in a single updateDoc call
   const updateStaff = async (staffId: string, staffData: any) => {
     try {
-      const coreKeys = [
-        'name', 'email', 'role', 'pin', 'clockInPin', 'ic', 'rate', 'shift', 'phone', 'joinDate'
-      ];
-      const summaryKeys = [
-        'clockInTime', 'clockOutTime', 'workHours', 'clockInTimestamp', 'lastAttendanceDate',
-        'status', 'lastLogin', 'timestamp', 'cashEarned', 'ewalletEarned', 'totalTransaction', 'totalEarned'
-      ];
-      const reportKeys = [
-        'attendanceDays', 'hoursWorked', 'totalPay', 'shiftStatus'
-      ];
-
-      const coreFields: any = {};
-      const summaryFields: any = {};
-      const reportFields: any = {};
-
-      Object.keys(staffData).forEach((key) => {
-        if (coreKeys.includes(key)) {
-          coreFields[key] = staffData[key];
-        } else if (summaryKeys.includes(key)) {
-          summaryFields[key] = staffData[key];
-        } else if (reportKeys.includes(key)) {
-          reportFields[key] = staffData[key];
-        } else {
-          // Default fallback
-          coreFields[key] = staffData[key];
-        }
-      });
-
-      if (staffData.pin || staffData.clockInPin) {
-        const pinVal = staffData.pin || staffData.clockInPin || '';
-        coreFields.clockInPin = pinVal;
-        coreFields.pin = pinVal;
+      // Normalize PIN updates if present
+      const updates = { ...staffData };
+      if (updates.pin || updates.clockInPin) {
+        const pinVal = updates.pin || updates.clockInPin || '';
+        updates.clockInPin = pinVal;
+        updates.pin = pinVal;
       }
 
-      const promises: Promise<any>[] = [];
-
-      if (Object.keys(coreFields).length > 0) {
-        promises.push(updateDoc(doc(db, 'staff', staffId), coreFields));
-      }
-      if (Object.keys(summaryFields).length > 0) {
-        promises.push(updateSummary(staffId, summaryFields));
-      }
-      if (Object.keys(reportFields).length > 0) {
-        promises.push(updateReport(staffId, reportFields));
-      }
-
-      await Promise.all(promises);
+      await updateDoc(doc(db, 'staff', staffId), updates);
     } catch (err) {
       console.error('Error updating staff in Firestore:', err);
       throw err;
     }
   };
 
-  // Delete staff member
+  // Delete staff member document
   const deleteStaff = async (staffId: string) => {
     try {
-      await Promise.all([
-        deleteDoc(doc(db, 'staff', staffId)),
-        deleteSummary(staffId),
-        deleteReport(staffId),
-      ]);
+      await deleteDoc(doc(db, 'staff', staffId));
     } catch (err) {
       console.error('Error deleting staff from Firestore:', err);
       throw err;
     }
   };
 
-  return { staff, loading, error, addStaff, updateStaff, deleteStaff };
+  return { staff: staffList, loading, error, addStaff, updateStaff, deleteStaff };
 }

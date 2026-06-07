@@ -17,7 +17,7 @@ export interface StockViewProps {
   setLastUpdatedTime: (time: string) => void;
   lastUpdatedBy: string;
   setLastUpdatedBy: (by: string) => void;
-  
+
   // Firestore integration operations
   addItem?: (item: Omit<StockItem, 'id'>, by?: string) => Promise<void>;
   restockItem?: (itemId: string | number, amount: number, by?: string) => Promise<void>;
@@ -31,6 +31,7 @@ export interface SalesTransaction {
   time: string;
   orderId: string;
   staffName: string;
+  staffId?: string;
   staffInitials: string;
   staffColor: string;
   amount: number;
@@ -46,6 +47,7 @@ export interface Expense {
   amount: number;
   date: string;
   staff: string[];
+  staffId?: string;
   type: 'expense' | 'income';
   timestamp?: number;
 }
@@ -70,5 +72,13 @@ export interface StaffMember {
   clockInTimestamp?: number;
   lastAttendanceDate?: string;
   status?: string;
+  shift?: string;
+  rate?: string | number;
+  ic?: string;
+  lastLogin?: string;
+  cashEarned?: number;
+  ewalletEarned?: number;
+  totalTransaction?: number;
+  totalEarned?: number;
 }
 

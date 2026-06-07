@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useExpensesFirestore } from '../hooks/useExpensesFirestore';
 import { useTransactionsFirestore } from '../hooks/useTransactionsFirestore';
+import { useStaffFirestore } from '../hooks/useStaffFirestore';
 import * as XLSX from 'xlsx';
 
 interface LedgerTransaction {
@@ -69,19 +70,7 @@ const transactions: LedgerTransaction[] = [
 
 export default function Ledger() {
   const userRole = localStorage.getItem('userRole') || 'admin';
-  
-  const staffRegistry = useMemo(() => {
-    const saved = localStorage.getItem('wise_staff_registry');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        return [];
-      }
-    }
-    return [];
-  }, []);
-
+  const { staff: staffRegistry } = useStaffFirestore();
   const { transactions: firestoreTransactions, deleteTransaction, addTransaction } = useTransactionsFirestore();
   const { expenses: firestoreExpenses, deleteExpense, addExpense } = useExpensesFirestore();
 
@@ -203,13 +192,17 @@ export default function Ledger() {
     const dateObj = new Date(incomeDate);
     const dateFormatted = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
+    const staffObj = staffRegistry.find(s => String(s.id) === incomeStaff);
+    const staffNameStr = staffObj ? staffObj.name : 'Unknown Staff';
+
     try {
       await addTransaction({
         date: dateFormatted,
         time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
         orderId: incomeName,
-        staffName: incomeStaff,
-        staffInitials: incomeStaff.substring(0, 2).toUpperCase(),
+        staffId: incomeStaff,
+        staffName: staffNameStr,
+        staffInitials: staffNameStr.substring(0, 2).toUpperCase(),
         staffColor: 'bg-primary-container text-on-primary-container',
         amount: parseFloat(incomeAmount)
       });
@@ -236,6 +229,9 @@ export default function Ledger() {
     const dateObj = new Date(expenseDate);
     const dateFormatted = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
+    const staffObj = staffRegistry.find(s => String(s.id) === expenseStaff);
+    const staffNameStr = staffObj ? staffObj.name : 'Unknown Staff';
+
     // Save to Firestore
     try {
       await addExpense({
@@ -244,7 +240,8 @@ export default function Ledger() {
         category: expenseCategory,
         amount: parseFloat(expenseAmount),
         date: dateFormatted,
-        staff: [expenseStaff],
+        staff: [staffNameStr],
+        staffId: expenseStaff,
         type: 'expense'
       });
     } catch (err) {
@@ -665,7 +662,7 @@ export default function Ledger() {
                   >
                     <option value="" disabled>Select Staff Member</option>
                     {staffRegistry.map((staff: any) => (
-                      <option key={staff.id} value={staff.name}>{staff.name}</option>
+                      <option key={staff.id} value={staff.id}>{staff.name}</option>
                     ))}
                   </select>
                 </div>

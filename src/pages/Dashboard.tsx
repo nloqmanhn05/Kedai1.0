@@ -21,19 +21,19 @@ export default function Dashboard() {
 
   const userRole = localStorage.getItem('userRole') || 'admin';
 
-  // Find the current staff member's name by matching login email
-  const currentStaffName = useMemo(() => {
+  // Find the current staff member by matching login email
+  const currentStaff = useMemo(() => {
     if (userRole !== 'staff' || !user?.email) return null;
     const match = allStaff.find(
       s => (s as any).email?.toLowerCase() === user.email!.toLowerCase()
     );
-    return match?.name || null;
+    return match || null;
   }, [allStaff, user, userRole]);
 
   const handleViewFullReport = () => {
     if (userRole === 'staff') {
-      if (currentStaffName) {
-        navigate(`/transactions?staff=${encodeURIComponent(currentStaffName)}`);
+      if (currentStaff) {
+        navigate(`/transactions?staffId=${encodeURIComponent(String(currentStaff.id))}`);
       } else {
         navigate('/transactions');
       }
